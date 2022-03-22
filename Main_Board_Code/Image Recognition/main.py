@@ -1,5 +1,4 @@
 # import libs
-import cv2
 import cv2 as cv
 import numpy as np
 from collections import deque
