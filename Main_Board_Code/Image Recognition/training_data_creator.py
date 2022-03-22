@@ -3,7 +3,7 @@ import numpy as np
 
 # choose a place to save the output frames that's outside of the github repo
 # DO NOT COMMIT THE SAVED FRAMES TO THE GITHUB REPO
-image_path = r'C:\Users\Quinn\Downloads\training_data\1'
+image_path = r'C:\Users\Quinn\Downloads\training_data\2'
 num_im_saved = 0
 # open video capture
 vid = cv.VideoCapture(0)
@@ -122,9 +122,16 @@ while True:
     im_width = training_output.shape[0]
     im_height = training_output.shape[1]
     if im_width > 80 and im_width < display_output.shape[0] and im_height > 80 and im_height < display_output.shape[1]:
-        file_name = image_path + "\\image{0}.png".format(num_im_saved)
-        num_im_saved += 1 if cv.imwrite(file_name, training_output) else print("Image wasn't saved")
+        # create a file name
+        file_name = r"\image2{0}".format(num_im_saved)
+        # create a folder path to save the image files in and save the file
+        image_folder_path = image_path + r'\image' + file_name + '.png'
+        num_im_saved += 1 if cv.imwrite(image_folder_path, training_output) else print("Image wasn't saved")
 
+        # create a folder path to save the text file in and save the file
+        text_file = image_path+r'\text'+file_name+r'.gt.txt'
+        with open(text_file, 'w') as f:
+            f.write('2')
 
     # press q to stop the program (nothing else will work)
     if cv.waitKey(1) == ord('q'):

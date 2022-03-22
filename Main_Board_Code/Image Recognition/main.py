@@ -45,7 +45,7 @@ def get_im_text(image):
     # config for image detection
     # Detects only digits
     #custom_config = r'--oem 3 --psm 6 outputbase digits'
-    custom_config = r'-c tessedit_char_whitelist=12356 --psm 6'
+    custom_config = r'-c tessedit_char_whitelist=12345 --psm 6'
     # Get a bounding box
     # create a contour around the shape
     contours, hierarchy = cv.findContours(yellow_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
@@ -68,20 +68,6 @@ def get_im_text(image):
 
     return message, image
 
-#skew correction
-def deskew(image):
-    coords = np.column_stack(np.where(image > 0))
-    angle = cv2.minAreaRect(coords)[-1]
-    if angle < -45:
-        angle = -(90 + angle)
-    else:
-        angle = -angle
-    (h, w) = image.shape[:2]
-    center = (w // 2, h // 2)
-    M = cv2.getRotationMatrix2D(center, angle, 1.0)
-    rotated = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
-    return rotated
-
 # useful pre-processing step that gets rid of a lot of image noise
 def hole_fill(image):
     # blur the image to filter out some of the high frequency noise
@@ -93,28 +79,6 @@ def hole_fill(image):
     dilation = cv.dilate(bin_mask, rect_kernel, iterations=1)
 
     return dilation
-
-def answer_filter(answer):
-    # This dictionary returns the most likely actual number given an input number
-    try:
-        num = int(float(answer.strip()))
-    except:
-        return None
-    answer_conversion = {
-        "1": 1,
-        "2": 2,
-        "3": 3,
-        "4": 4,
-        "5": 5,
-        "6": 6,
-        "7": 1,
-        "8": 8,
-        "9": 9
-    }
-    try:
-        return answer_conversion[str(num)]
-    except:
-        return None
 
 # these variables keep track of the value of a contour capture.
 # They go up as more frames are captured in succession
@@ -175,7 +139,6 @@ while True:
                 input_text_im = hole_fill(input_text_im)
                 # Read the image
                 message, text_im = get_im_text(input_text_im)
-                message = answer_filter(message)
                 # print out the found text
                 if message != None and message != "\n" and message != "":
                     print(message)
