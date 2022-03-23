@@ -19,8 +19,8 @@ if not vid.isOpened():
     exit()
 
 # upper and lower values for the yellow hue
-lower_yellow = np.array([18, 115, 115])
-upper_yellow = np.array([32, 255, 255])
+lower_yellow = np.array([20, 120, 120])
+upper_yellow = np.array([30, 255, 255])
 
 avg_pos = deque([])
 
