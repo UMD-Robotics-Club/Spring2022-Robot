@@ -97,16 +97,16 @@ class Camera:
             ysum += pos[1]
         return xsum/len(avg_pos), ysum/len(avg_pos)
 
-        def close_video(self):
-            self.cap.release()
-            cv.destroyAllWindows()
-            return
-        
-        def display_image(self):
-            cv.imshow('frame', self.frame)
-             # press q to stop the program (nothing else will work)
-            if cv.waitKey(1) == ord('q'):
-                self.close_video()
-            return
+    def close_video(self):
+        self.cap.release()
+        cv.destroyAllWindows()
+        return
+    
+    def display_image(self):
+        cv.imshow('frame', self.frame)
+            # press q to stop the program (nothing else will work)
+        if cv.waitKey(1) == ord('q'):
+            self.close_video()
+        return
 
     
