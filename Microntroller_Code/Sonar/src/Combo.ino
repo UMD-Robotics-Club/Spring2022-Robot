@@ -25,12 +25,14 @@ bool new_data = false;
 bool transmission_finished = false;
 const int num_chars = 100;
 char text_data[num_chars] = "";
+// this array contains the parsed command and all of its arguments. index of 0 is the command, and the rest are the arguments
+String command[10] = {"this", "is", "an", "example", "of", "a", "command", "", "", ""};
 
 void setup() {
   servo.attach(servoPin);
   pinMode(triggerpin, OUTPUT);
   pinMode(echopin, INPUT);
-  pinMode(9,OUTPUT);
+  pinMode(9, OUTPUT);
   Serial.begin(9600);
   // init array
   for (int i = 0; i < angleNum; i++) {
@@ -38,6 +40,7 @@ void setup() {
   }
   servo.write(0);
   delay(300);
+  Serial.println("Startup Complete");
 }
 // gets the distance from a sonar sensor in centimeters
 float get_distance(){
@@ -60,11 +63,16 @@ void readSerial(bool* recvInProgress, bool* new_data, bool* transmission_finishe
   char startMarker = '!';
   char endMarker = ';';
   char c;
- 
-  while (Serial.available() > 0 && new_data == false) {
+  
+  // read in new serial as long as its available and we're not overwriting unread serial
+  while (Serial.available() > 0 && *new_data == false) {
+    // Read in a character at a time
     c = Serial.read();
+    // check to see if the character is a newline character. End reading if it is
     if(c == '\n'){*transmission_finished = true;}
+    // check to see if the recieve is already in progress. If it isn't, check to see if the character read is the start marker
     if (*recvInProgress == true) {
+      // if the character recieved isn't the end marker, add it to the text_data array
       if (c != endMarker) {
         text_data[ndx] = c;
         ndx++;
@@ -72,6 +80,7 @@ void readSerial(bool* recvInProgress, bool* new_data, bool* transmission_finishe
           ndx = num_chars - 1;
         }
       }
+      // if the character recieved is the end marker terminate the string and set the flag that new data is available
       else {
         text_data[ndx] = '\0'; // terminate the string
         *recvInProgress = false;
@@ -79,25 +88,52 @@ void readSerial(bool* recvInProgress, bool* new_data, bool* transmission_finishe
         *new_data = true;
       }
     }
+    // check to see if the character read is the start marker
     else if (c == startMarker) {
         *recvInProgress = true;
     }
   }
 }
 
-//Split the string up by commas
-void split(char* str, char* arr[], int num_chars){
+// split the recieved up by commas into the command array
+void parseData(char text_data[]){
+  // split the data into its parts
+  char * indx; // this is used by strtok() as an index
   int i = 0;
-  int j = 0;
-  while (str[i] != '\0') {
-    if (str[i] == ',') {
-      arr[j] = str + i + 1;
-      j++;
-    }
+  indx = strtok(text_data, ",");      // get the first part - the string
+  while(indx != NULL){
+    command[i] = indx;
     i++;
+    indx = strtok(NULL, ","); // this continues where the previous call left off
   }
 }
 
+// arg_length should be 10
+void executeCommand(String command[], int arg_length){
+  // check to see what the command is
+  // test command just prints out all of the parameters to serial
+  if(command[0] == "test"){
+    Serial.println("test command recieved, printing out command");
+    for(int i = 0; i < arg_length; i++){
+      Serial.print(command[i]);
+      Serial.print(",");
+    }
+    Serial.println("");
+  }
+  // send all of the sonar distances and angles in a comma seperated list
+  else if(command[0] == "getSonar"){
+    Serial.println("getSonar command recieved, sending distance");
+    for(int i = 0; i < angleNum; i++){
+      Serial.print(i*angleInc);
+      Serial.print(",");
+      Serial.print(angleDis[i]);
+      Serial.print(",");
+    }
+    Serial.println("");
+  }
+}
+
+// variables to keep track of the servo's position
 bool isGoingClockwise = false;
 int angleIndex = 0;
 
@@ -122,8 +158,18 @@ void loop() {
   angleDis[angleIndex] = distance;
 
   // read serial data
-  readSerial(&recvInProgress, &new_data, &transmission_finished, text_data, num_chars);
+  if(Serial.available() > 0){
+    // read in the serial
+    readSerial(&recvInProgress, &new_data, &transmission_finished, text_data, num_chars);
+  }
   if(new_data){
+    // create a copy of the text data because the parseData function will destroy the string while processing it
+    char temp_data[num_chars] = "";
+    strcpy(temp_data, text_data);
+    // pase the text data
+    parseData(temp_data);
+    executeCommand(command, 10);
+    // set the flag that the new data has been processed
     new_data = false;
   }
 }
