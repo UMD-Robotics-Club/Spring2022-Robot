@@ -5,19 +5,26 @@
 
 Servo servo; 
 
-#define servoPin 5
+// Pin defintions
+#define servoPin 9
 #define triggerpin 10
 #define echopin 11
+#define moisturePin A0
 
-int position;
-long duration;
-long distance;
-long x;
-// array that stores the distance at each servo position
+#define leftWheelSpeedPin 2
+#define leftWheelDirPin 3
+#define rightWheelSpeedPin 4
+#define rightWheelDirPin 5
+
+// servo and sonar variables
 // The (index value)*5 will give you the angle that the measuremnt was taken out. The value at that index will be the distance
 const int angleInc = 5;
 const int angleNum = 180/angleInc;
+// array that stores the distance at each servo position
 float angleDis[angleNum];
+// variables to keep track of the servo's position
+bool isGoingClockwise = false;
+int angleIndex = 0;
 
 // serial variables to read and process serial
 bool recvInProgress = false;
@@ -29,12 +36,25 @@ char text_data[num_chars] = "";
 String command[10] = {"this", "is", "an", "example", "of", "a", "command", "", "", ""};
 
 void setup() {
+  Serial.begin(115200); // should probably increase the baud to its max
+  // Set up all of the pins
   servo.attach(servoPin);
   pinMode(triggerpin, OUTPUT);
   pinMode(echopin, INPUT);
-  pinMode(9, OUTPUT);
-  Serial.begin(9600);
-  // init array
+  pinMode(moisturePin, INPUT);
+  pinMode(leftWheelSpeedPin, OUTPUT);
+  pinMode(leftWheelDirPin, OUTPUT);
+  pinMode(rightWheelSpeedPin, OUTPUT);
+  pinMode(rightWheelDirPin, OUTPUT);
+
+  // turn off all pins ASAP
+  analogWrite(leftWheelSpeedPin, 0);
+  analogWrite(rightWheelSpeedPin, 0);
+  digitalWrite(leftWheelDirPin, LOW);
+  digitalWrite(rightWheelDirPin, LOW);
+  digitalWrite(triggerpin, LOW);
+
+  // initialize distance array
   for (int i = 0; i < angleNum; i++) {
     angleDis[i] = 0;
   }
@@ -108,6 +128,7 @@ void parseData(char text_data[]){
   }
 }
 
+// looks at the arguments in the command[] array and executes instructions accordingly
 // arg_length should be 10
 void executeCommand(String command[], int arg_length){
   // check to see what the command is
@@ -131,11 +152,31 @@ void executeCommand(String command[], int arg_length){
     }
     Serial.println("");
   }
+  // get a moisture reading and send it back
+  // this should be upgraded to take several measurments and send back a moving average
+  // it also needs to be able to control the linear actuator to extend and retract
+  else if(command[0] == "getMoisture"){
+    Serial.println("getMoisture command recieved, sending moisture");
+    // prints our the moisture value as a percentage
+    Serial.println(map(analogRead(moisturePin), 0, 1023, 0, 100));
+  }
+  // takes in two values between -1 and 1 and sets the motor speed and direction proportionally
+  else if(command[0] == "setMotor"){
+    Serial.println("setMotor command recieved, setting motor speeds");
+    // Write the speed and direction to the motors
+    // i don't know why but the arduino sometimes crashes if you try to run the rest of these commands without the print statements
+    Serial.println(command[1]);
+    Serial.println(command[2]);
+    float leftSpeed = command[1].toFloat();
+    float rightSpeed = command[2].toFloat();
+    analogWrite(leftWheelSpeedPin, map(abs(leftSpeed),0,1,0,255));
+    digitalWrite(leftWheelDirPin, leftSpeed > 0 ? HIGH : LOW);
+    analogWrite(rightWheelSpeedPin, map(abs(rightSpeed),0,1,0,255));
+    digitalWrite(rightWheelDirPin, rightSpeed > 0 ? HIGH : LOW);
+
+  }
 }
 
-// variables to keep track of the servo's position
-bool isGoingClockwise = false;
-int angleIndex = 0;
 
 void loop() {
   // using if statements is important to allow the arduino to multitask
