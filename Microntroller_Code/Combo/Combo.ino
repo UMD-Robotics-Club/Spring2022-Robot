@@ -2,18 +2,19 @@
 // https://create.arduino.cc/projecthub/abdularbi17/ultrasonic-sensor-hc-sr04-with-arduino-tutorial-327ff6
 #include <Servo.h>
 
-Servo myservo; 
+Servo servo; 
+
+#define triggerpin 10
+#define echopin 11
 
 int position;
-int triggerpin=10;
-int echopin=11;
 long duration;
 long distance;
 long x;
 long angleDis[35][1];
 
 void setup() {
-  myservo.attach(9);
+  servo.attach(9);
   pinMode(triggerpin,OUTPUT);
   pinMode(echopin,INPUT);
   pinMode(9,OUTPUT);
@@ -23,7 +24,7 @@ void setup() {
 void loop() {
   for (position = 0; position <= 180; position += 5) {
     int i = position/5;
-    myservo.write(position);   
+    servo.write(position);   
     digitalWrite(triggerpin,LOW); 
     delayMicroseconds(2);
     digitalWrite(triggerpin,HIGH);
@@ -38,7 +39,7 @@ void loop() {
     delay(250);                       
   }
   for (position = 180; position >= 0; position -= 5) { 
-    myservo.write(position);              
+    servo.write(position);              
     delay(15);                       
   }
 }
