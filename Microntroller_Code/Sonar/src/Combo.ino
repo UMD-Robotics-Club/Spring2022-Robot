@@ -19,6 +19,13 @@ const int angleInc = 5;
 const int angleNum = 180/angleInc;
 float angleDis[angleNum];
 
+// serial variables to read and process serial
+bool recvInProgress = false;
+bool new_data = false;
+bool transmission_finished = false;
+const int num_chars = 100;
+char text_data[num_chars] = "";
+
 void setup() {
   servo.attach(servoPin);
   pinMode(triggerpin, OUTPUT);
@@ -46,23 +53,77 @@ float get_distance(){
 
 }
 
-void loop() {
-  for (int i = 0; i < angleNum; i++) {
-    int angle = i*angleInc;
-    servo.write(angle);
-    float distance = get_distance();
-    Serial.print("Distance :");
-    Serial.println(distance);                   
-    angleDis[i] = distance;
-    delay(50);                       
+// Read serial data from the computer
+void readSerial(bool* recvInProgress, bool* new_data, bool* transmission_finished, char text_data[], int num_chars){
+  *recvInProgress = false;
+  static int ndx = 0;
+  char startMarker = '!';
+  char endMarker = ';';
+  char c;
+ 
+  while (Serial.available() > 0 && new_data == false) {
+    c = Serial.read();
+    if(c == '\n'){*transmission_finished = true;}
+    if (*recvInProgress == true) {
+      if (c != endMarker) {
+        text_data[ndx] = c;
+        ndx++;
+        if (ndx >= num_chars) {
+          ndx = num_chars - 1;
+        }
+      }
+      else {
+        text_data[ndx] = '\0'; // terminate the string
+        *recvInProgress = false;
+        ndx = 0;
+        *new_data = true;
+      }
+    }
+    else if (c == startMarker) {
+        *recvInProgress = true;
+    }
   }
-  for(int i = angleNum-1; i >= 0; i--){
-    int angle = i*angleInc;
-    servo.write(angle);
-    float distance = get_distance();
-    Serial.print("Distance :");
-    Serial.println(distance);                   
-    angleDis[i] = distance;
-    delay(50); 
+}
+
+//Split the string up by commas
+void split(char* str, char* arr[], int num_chars){
+  int i = 0;
+  int j = 0;
+  while (str[i] != '\0') {
+    if (str[i] == ',') {
+      arr[j] = str + i + 1;
+      j++;
+    }
+    i++;
+  }
+}
+
+bool isGoingClockwise = false;
+int angleIndex = 0;
+
+void loop() {
+  // using if statements is important to allow the arduino to multitask
+  // This is all of the code needed to sweep and read distances
+  if(angleIndex == angleNum){
+    isGoingClockwise = false;
+  }
+  if(angleIndex == 0){
+    isGoingClockwise = true;
+  }
+  if(isGoingClockwise){
+    angleIndex++;
+  }
+  else{
+    angleIndex--;
+  }
+  int angle = angleIndex*angleInc;
+  servo.write(angle);
+  float distance = get_distance();
+  angleDis[angleIndex] = distance;
+
+  // read serial data
+  readSerial(&recvInProgress, &new_data, &transmission_finished, text_data, num_chars);
+  if(new_data){
+    new_data = false;
   }
 }
