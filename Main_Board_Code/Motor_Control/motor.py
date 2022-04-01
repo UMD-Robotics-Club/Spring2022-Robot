@@ -40,6 +40,47 @@ class motor:
     # takes a true or false value to enable or disable the motor
     def enable(self, on_or_off):
         GPIO.output(self.enable_pin, on_or_off)
+    
+    def set_wheel_diameter(self, diameter):
+        self.wheel_diameter = diameter
+    def get_circumference(self):
+        return self.wheel_diameter * 3.14159265359
+    def invert_dir_pin(self, is_inverted):
+        self.is_inverted = is_inverted
+
+class drive_train:
+    # takes two motor objects and an optional IMU object to help with turning
+    def __init__(self, motor1, motor2, imu = None, initial_angle = 0):
+        self.motor1 = motor1
+        self.motor2 = motor2
+        self.imu = imu
+        self.velocity = 0
+        self.turn_ratio = 0
+        # use the imu angle to set the initial angle, otherwise use an intial angle that can be manually set
+        if imu != None:
+            # as of 3/30/22 the IMU class does not exist and this is a theoretical function
+            self.angle = imu.get_angle()
+        else:
+            self.angle = initial_angle
+    
+    # turn ratio is a number between 0 and 1 which controls how much the drive base will
+    # turn relative to the velocity of the drive base
+    def set_turn_velocity(self, velocity, turn_ratio=0):
+        self.velocity = velocity
+        self.turn_ratio = turn_ratio
+        # set the motor velocities based on the turn ratio and velocity
+        if turn_ratio >= 0:
+            self.motor1.set_velocity(velocity)
+            self.motor2.set_velocity(velocity*(1-2*turn_ratio))
+        else:
+            self.motor1.set_velocity(velocity*(1-2*turn_ratio))
+            self.motor2.set_velocity(velocity)
+    
+    def turn_to_angle(self, angle):
+        if self.imu == None:
+            print("No IMU detected, cannot turn to a set angle without an imu initialized\nPlease add an IMU to the class initializer")
+            return 1/0 # <-- this is probably a bad idea to get the programmer's attention
+        # get the current angle
         current_angle = self.imu.get_angle()
         while current_angle > angle+8 or current_angle < angle-8:
             # set the turn velocity based on the difference between the current angle and the angle we want to turn to
