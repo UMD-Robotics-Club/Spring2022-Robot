@@ -16,28 +16,29 @@ class robot_serial:
 
     # will keep sending the serial command until it recieves a response or the timeout is reached
     # will return true if a response was recieved, false if it reached the timeout
-    def send_confirmed_message(self, message, timeout=1):
+    def send_confirmed_message(self, message, timeout=1, recieve_confirmation='recieved'):
         return_mes = ""
         start_time = time()
-        while (return_mes.find('recieved') == -1) and (time() - start_time < timeout):
+        while (return_mes.find(recieve_confirmation) == -1) and (time() - start_time < timeout):
             self.port.write(message)
             return_mes = self.port.readline().decode('utf-8')
-            print(return_mes)
-        return True
+        return return_mes
 
     # send a message and does not wait for a response
     def send_message(self, message):
         self.port.write(message)
         return
 
+    # sends the get sonar command and then automatically processes all of the data and returns it in an array
     def getSonar(self, timeout=1):
-        self.send_confirmed_message(b"!getSonar;\n")
+        self.send_confirmed_message(b"!getSonar;\n", recieve_confirmation='getSonar')
         message = ""
         start_time = time()
         # keep looking for the message
-        while len(message) < 3 and (time() - start_time < timeout):
+        while len(message) < 3:
             message = self.port.readline().decode('utf-8')
-
+            if time() - start_time > timeout:
+                return None
         # splits the string up by commas
         message_array = message.split(',')
         dist_array = []
@@ -51,10 +52,38 @@ class robot_serial:
                     print("Error converting to float while reading sonar array")
         return dist_array
     
+    # sends the getMoisture command and then automatically processes the serial data and return a percentage
+    def getMoisture(self, timeout=1):
+        self.send_confirmed_message(b"!getMoisture;\n", recieve_confirmation='getMoisture')
+        message = ""
+        start_time = time()
+        # keep looking for the message until a number is returned or the timeout is reached
+        while True:
+            # exit the function if the timeout is reached
+            if time() - start_time > timeout:
+                return -1
+            # check to see if a message was read
+            if len(message) >= 3:
+                # check to see if the message is a number. THis has to be done after the first check to avoid errors
+                if message[0].isnumeric():
+                    try:
+                        return float(message)
+                    except:
+                        print("Error converting to float while reading moisture.\nMessage: ", message)
+                        return -1
+            message = self.port.readline().decode('utf-8')
+        return -1
+            
+
+        # try to convert the message to a number
+        
+
+    # close the serial port. Call this on program exit
     def close(self):
         self.port.close()
         return
 
 tester = robot_serial("COM4")
 print(tester.getSonar())
+print(tester.getMoisture())
 tester.close()
