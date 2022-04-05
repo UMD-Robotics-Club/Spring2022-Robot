@@ -1,4 +1,4 @@
-import serial
+import serial # pip install pyserial
 from time import sleep
 from time import time
 
@@ -16,7 +16,7 @@ class robot_serial:
 
     # will keep sending the serial command until it recieves a response or the timeout is reached
     # will return true if a response was recieved, false if it reached the timeout
-    def send_confirmed_message(self, message, timeout=1, recieve_confirmation='recieved'):
+    def send_confirmed_message(self, message, timeout=2.5, recieve_confirmation='recieved'):
         return_mes = ""
         start_time = time()
         while (return_mes.find(recieve_confirmation) == -1) and (time() - start_time < timeout):
@@ -72,18 +72,73 @@ class robot_serial:
                         print("Error converting to float while reading moisture.\nMessage: ", message)
                         return -1
             message = self.port.readline().decode('utf-8')
-        return -1
-            
-
-        # try to convert the message to a number
         
-
+    # set the motor speeds
+    def setMotor(self, left_speed, right_speed):
+        message = "!setMotor," + str(left_speed) + "," + str(right_speed) + ";\n"
+        return self.send_confirmed_message(bytes(message, 'utf-8'), recieve_confirmation='setting motor')
+    
     # close the serial port. Call this on program exit
     def close(self):
         self.port.close()
         return
 
+
+
+'''
 tester = robot_serial("COM4")
-print(tester.getSonar())
-print(tester.getMoisture())
+
+from random import random
+
+# test setMotor response time
+total_time = 0
+min = 100
+max = 0
+for i in range(0,30):
+    _, timer = tester.setMotor(round(random(),4), round(random(),4))
+    if timer < min:
+        min = timer
+    if timer > max:
+        max = timer
+    total_time += timer
+    print(timer, "Return Message:", _)
+print("setMotor Average:", total_time/30)
+print("setMotor Min:", min)
+print("setMotor Max:", max)
+
+
+#test getSonar response time
+total_time = 0
+min = 100
+max = 0
+for i in range(0,30):
+    _, timer = tester.getSonar()
+    if timer < min:
+        min = timer
+    if timer > max:
+        max = timer
+    total_time += timer
+    print(timer)
+print("getSonar Average: ", total_time/30)
+print("getSonar Min: ", min)
+print("getSonar Max: ", max)
+
+# test getMoisture response time
+total_time = 0
+min = 100
+max = 0
+for i in range(0,30):
+    _, timer = tester.getMoisture()
+    if timer < min:
+        min = timer
+    if timer > max:
+        max = timer
+    total_time += timer
+    print(timer)
+print("getMoisture Average: ", total_time/30)
+print("getMoisture Min: ", min)
+print("getMoisture Max: ", max)
+'''
 tester.close()
+
+
