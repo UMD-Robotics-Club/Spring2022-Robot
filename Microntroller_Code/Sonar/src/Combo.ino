@@ -16,8 +16,15 @@ Servo servo;
 #define rightWheelSpeedPin 4
 #define rightWheelDirPin 5
 
+// comment or uncomment the following line to enable or disable certain features
+#define usingMotor
+#define usingSonar
+#define usingMoisture
+
 // servo and sonar variables
-// The (index value)*5 will give you the angle that the measuremnt was taken out. The value at that index will be the distance
+// The (index value)*5 will give you the angle that the measuremnt was taken at.
+// angleInc is the incriment that the servo takes before taking another measurement
+// the angleNum is the total number of angles that the servo will take before returning to 0
 const int angleInc = 5;
 const int angleNum = 180/angleInc;
 // array that stores the distance at each servo position
@@ -169,9 +176,9 @@ void executeCommand(String command[], int arg_length){
     Serial.println(command[2]);
     float leftSpeed = command[1].toFloat();
     float rightSpeed = command[2].toFloat();
-    analogWrite(leftWheelSpeedPin, map(abs(leftSpeed),0,1,0,255));
+    analogWrite(leftWheelSpeedPin, map(abs((int)(leftSpeed*100)),0,100,0,255));
     digitalWrite(leftWheelDirPin, leftSpeed > 0 ? HIGH : LOW);
-    analogWrite(rightWheelSpeedPin, map(abs(rightSpeed),0,1,0,255));
+    analogWrite(rightWheelSpeedPin, map(abs((int)(rightSpeed*100)),0,100,0,255));
     digitalWrite(rightWheelDirPin, rightSpeed > 0 ? HIGH : LOW);
 
   }
@@ -181,22 +188,25 @@ void executeCommand(String command[], int arg_length){
 void loop() {
   // using if statements is important to allow the arduino to multitask
   // This is all of the code needed to sweep and read distances
-  if(angleIndex == angleNum){
-    isGoingClockwise = false;
-  }
-  if(angleIndex == 0){
-    isGoingClockwise = true;
-  }
-  if(isGoingClockwise){
-    angleIndex++;
-  }
-  else{
-    angleIndex--;
-  }
-  int angle = angleIndex*angleInc;
-  servo.write(angle);
-  float distance = get_distance();
-  angleDis[angleIndex] = distance;
+  #ifdef usingSonar
+    if(angleIndex == angleNum-1){
+      isGoingClockwise = false;
+    }
+    if(angleIndex == 0){
+      isGoingClockwise = true;
+    }
+    if(isGoingClockwise){
+      angleIndex++;
+    }
+    else{
+      angleIndex--;
+    }
+    int angle = angleIndex*angleInc;
+    servo.write(angle);
+    float distance = get_distance();
+    angleDis[angleIndex] = distance;
+  #endif
+  
 
   // read serial data
   if(Serial.available() > 0){
