@@ -15,11 +15,11 @@ Servo servo;
 #define leftWheelDirPin 3
 #define rightWheelSpeedPin 4
 #define rightWheelDirPin 5
+#define linActSpeedPin 6
+#define linActDirPin 7
 
 // comment or uncomment the following line to enable or disable certain features
-#define usingMotor
 #define usingSonar
-#define usingMoisture
 
 // servo and sonar variables
 // The (index value)*5 will give you the angle that the measuremnt was taken at.
@@ -53,6 +53,8 @@ void setup() {
   pinMode(leftWheelDirPin, OUTPUT);
   pinMode(rightWheelSpeedPin, OUTPUT);
   pinMode(rightWheelDirPin, OUTPUT);
+  pinMode(linActSpeedPin, OUTPUT);
+  pinMode(linActDirPin, OUTPUT);
 
   // turn off all pins ASAP
   analogWrite(leftWheelSpeedPin, 0);
@@ -60,6 +62,8 @@ void setup() {
   digitalWrite(leftWheelDirPin, LOW);
   digitalWrite(rightWheelDirPin, LOW);
   digitalWrite(triggerpin, LOW);
+  digitalWrite(linActSpeedPin, LOW);
+  digitalWrite(linActDirPin, LOW);
 
   // initialize distance array
   for (int i = 0; i < angleNum; i++) {
@@ -163,9 +167,28 @@ void executeCommand(String command[], int arg_length){
   // this should be upgraded to take several measurments and send back a moving average
   // it also needs to be able to control the linear actuator to extend and retract
   else if(command[0] == "getMoisture"){
+    int moistureVals[20];
+    int avgMoisture = 0;
     Serial.println("getMoisture command recieved, sending moisture");
-    // prints our the moisture value as a percentage
-    Serial.println(map(analogRead(moisturePin), 0, 1023, 0, 100));
+    // extend the linear actuator
+    digitalWrite(linActDirPin, LOW);
+    digitalWrite(linActDirPin, HIGH);
+    delay(8000);
+    digitalWrite(linActDirPin, LOW);
+    // read 20 measurements
+    for(int i = 0; i < 20; i++){
+      moistureVals[i] = analogRead(moisturePin);
+      avgMoisture += moistureVals[i];
+    }
+    // retract the linear actuator
+    digitalWrite(linActDirPin, HIGH);
+    digitalWrite(linActDirPin, HIGH);
+    delay(10000);
+    digitalWrite(linActDirPin, LOW);
+    digitalWrite(linActDirPin, LOW);
+
+    // prints out the average moisture value as a percentage
+    Serial.println(map(avgMoisture/20, 0, 1023, 0, 100));
   }
   // takes in two values between -1 and 1 and sets the motor speed and direction proportionally
   else if(command[0] == "setMotor"){
@@ -180,7 +203,6 @@ void executeCommand(String command[], int arg_length){
     digitalWrite(leftWheelDirPin, leftSpeed > 0 ? HIGH : LOW);
     analogWrite(rightWheelSpeedPin, map(abs((int)(rightSpeed*100)),0,100,0,255));
     digitalWrite(rightWheelDirPin, rightSpeed > 0 ? HIGH : LOW);
-
   }
 }
 
