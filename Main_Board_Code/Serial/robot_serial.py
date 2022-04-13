@@ -139,6 +139,6 @@ print("getMoisture Average: ", total_time/30)
 print("getMoisture Min: ", min)
 print("getMoisture Max: ", max)
 '''
-tester.close()
+#tester.close()
 
 

@@ -33,9 +33,9 @@ class Camera:
         # convert the frame from rgb to hsv values
         hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
         # find all of the yellow in the image
-        yellow_mask = cv.inRange(hsv, lower_yellow, upper_yellow)
+        self.yellow_mask = cv.inRange(hsv, self.lower_yellow, self.upper_yellow)
         # apply the mask to the display frame
-        self.frame = cv.bitwise_and(frame, frame, mask=yellow_mask)
+        self.frame = cv.bitwise_and(frame, frame, mask=self.yellow_mask)
         return self.frame
 
     # useful pre-processing step that gets rid of a lot of image noise
@@ -51,20 +51,16 @@ class Camera:
         return dilation
 
     def crop_image(self, image):
-        contours, hierarchy = cv.findContours(yellow_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
-        # create a bounding box around the largest contour
-        c = max(contours, key=cv.contourArea)
-        x, y, w, h = cv.boundingRect(c)
-        #Crop the image by its bounding box
-        if y > 5 and y+h+5 < image.shape[1]:
-            y -= 5
-            h += 10
-        if x > 5 and x+w+5 < image.shape[0]:
-            x -= 5
-            w += 10
+        contours, hierarchy = cv.findContours(self.yellow_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
+        if len(contours) > 0:
+            # create a bounding box around the largest contour
+            c = max(contours, key=cv.contourArea)
+            x, y, w, h = cv.boundingRect(c)
 
-        image = image[y:y+h, x:x+w]
-        return image, (x, y, w, h)
+            image = image[y:y+h, x:x+w]
+            return image, (x, y, w, h)
+        else:
+            return image, (0, 0, 0, 0)
 
     def get_im_text(image):
         # config for image detection
@@ -109,4 +105,4 @@ class Camera:
             self.close_video()
         return
 
-    
+
