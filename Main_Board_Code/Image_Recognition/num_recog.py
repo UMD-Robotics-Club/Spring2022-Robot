@@ -8,7 +8,7 @@ import pytesseract as tes
 #tes.pytesseract.tesseract_cmd = 'C:\Program Files\Tesseract-OCR\\tesseract.exe'
 
 class Camera:
-    def __init__(self):
+    def __init__(self, tesseract_path):
         # open up a video stream
         self.cap = cv.VideoCapture(0)
         # exit the program if video capture isn't working
@@ -21,7 +21,7 @@ class Camera:
         # keep track of the average center of mass of the yellow shapes
         self.avg_pos = deque([])
         # Mention the installed location of Tesseract-OCR in your system
-        tes.pytesseract.tesseract_cmd = 'C:\\Program Files (x86)\\Tesseract-OCR\\tesseract.exe'
+        tes.pytesseract.tesseract_cmd = tesseract_path
     
     def get_frame(self):
         ret, frame = self.cap.read()
@@ -39,9 +39,10 @@ class Camera:
         return self.frame
 
     # useful pre-processing step that gets rid of a lot of image noise
-    def hole_fill(image):
+    def denoise_im(self, image):
+        im_copy = image.copy()
         # blur the image to filter out some of the high frequency noise
-        blur = cv.blur(image, (10,10))
+        blur = cv.blur(im_copy, (10,10))
         # do a binary mask
         th, bin_mask = cv.threshold(blur, 20, 255, cv.THRESH_BINARY_INV)
         rect_kernel = cv.getStructuringElement(cv.MORPH_RECT, (10, 10))
@@ -50,6 +51,7 @@ class Camera:
 
         return dilation
 
+    # get_frame() needs to be called before this in order for this function to work properly
     def crop_image(self, image):
         contours, hierarchy = cv.findContours(self.yellow_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
         if len(contours) > 0:
@@ -62,18 +64,20 @@ class Camera:
         else:
             return image, (0, 0, 0, 0)
 
-    def get_im_text(image):
+    # get_frame() needs to be called before this in order for this function to work properly
+    def get_im_text(self):
         # config for image detection
         # Detects only digits
         #custom_config = r'--oem 3 --psm 6 outputbase digits'
-        custom_config = r'-c tessedit_char_whitelist=12345 --psm 6'
-        text_image = self.crop_image(image)
+        custom_config = r'-c tessedit_char_whitelist=12345 --psm 10'
+        denoised_image = self.denoise_im(self.yellow_mask)
+        cropped_image, _ = self.crop_image(denoised_image)
         # Apply OCR on the processed image to find text
-        message = tes.image_to_string(text_image, config=custom_config)
+        message = tes.image_to_string(denoised_image, config=custom_config)
 
-        return message, image
+        return message, denoised_image
 
-    def mvg_avg(avg_pos, bounds):
+    def mvg_avg(self, avg_pos, bounds):
         # calculate the box center given x,y, width, height
         new_pos_x = bounds[0] + bounds[2]/2
         new_pos_y = bounds[1] + bounds[3]/2

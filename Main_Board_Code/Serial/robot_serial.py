@@ -61,6 +61,7 @@ class robot_serial:
         while True:
             # exit the function if the timeout is reached
             if time() - start_time > timeout:
+                print("Measurement timed out")
                 return -1
             # check to see if a message was read
             if len(message) >= 3:

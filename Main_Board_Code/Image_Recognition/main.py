@@ -7,8 +7,8 @@ from collections import deque
 import pytesseract as tes
 
 # Mention the installed location of Tesseract-OCR in your system
-tes.pytesseract.tesseract_cmd = r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe'
-#tes.pytesseract.tesseract_cmd = 'C:\Program Files\Tesseract-OCR\\tesseract.exe'
+#tes.pytesseract.tesseract_cmd = r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe'
+tes.pytesseract.tesseract_cmd = 'C:\Program Files\Tesseract-OCR\\tesseract.exe'
 
 # open video capture
 vid = cv.VideoCapture(0)
