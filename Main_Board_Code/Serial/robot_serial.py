@@ -6,7 +6,7 @@ from time import time
 class robot_serial:
     """This class is used to send and recieve data from the arduino."""
 
-    def __init__(self, serial_port, baud_rate=115200):
+    def __init__(self, serial_port : serial.Serial, baud_rate : int = 115200):
         """Give a path to the COM port and a baud rate. Default baud rate is 115200."""
         # create a serial port object
         self.port = serial.Serial(serial_port, baud_rate, timeout=0.5)
@@ -19,11 +19,12 @@ class robot_serial:
 
     # will keep sending the serial command until it recieves a response or the timeout is reached
     # will return true if a response was recieved, false if it reached the timeout
-    def send_confirmed_message(self, message : str, timeout=2.5, recieve_confirmation='recieved') -> str:
+    def send_confirmed_message(self, message : str, timeout : float = 2.5, recieve_confirmation : str ='recieved') -> str:
         """Send a serial message and wait for a confirmation message.
 
         Will keep sending the serial command until it recieves a response or the timeout is reached
         and will return true if a response was recieved, false if it reached the timeout
+        recieve_confirmation is the message it is looking for to know that the message was recieved
         """   
         return_mes = ""
         start_time = time()
@@ -32,12 +33,12 @@ class robot_serial:
             return_mes = self.port.readline().decode('utf-8')
         return return_mes
 
-    def send_message(self, message):
+    def send_message(self, message : str):
         """Send a message and do not wait for a response."""
         self.port.write(message)
         return ""
 
-    def getSonar(self, timeout=1.0) -> list:
+    def getSonar(self, timeout : float = 1.0) -> list:
         """Send the getSonar command and return an array of the distances and angles in cm.
         
         Returns a list of tuples with the first eleement in the tuple being the angle and the second being the distance.
@@ -64,7 +65,7 @@ class robot_serial:
                     print("Error converting to float while reading sonar array")
         return dist_array
     
-    def getMoisture(self, timeout=1) -> float:
+    def getMoisture(self, timeout : float = 1) -> float:
         """Send the getMoisture command and then automatically processes the serial data and return a percentage."""
         self.send_confirmed_message(b"!getMoisture;\n", recieve_confirmation='getMoisture')
         message = ""

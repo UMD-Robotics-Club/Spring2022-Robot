@@ -52,7 +52,7 @@ class Target:
 
     # can collect a sample of tesseract guesses and will take the guess that's the highest probability
     def infer_target(self, text : str) -> str:
-        """ Do statistical analysis on a list of guesses to choose the guess with the highest probability of being correct.
+        """Do statistical analysis on a list of guesses to choose the guess with the highest probability of being correct.
 
         Give a string of the current target's identity and it will add it to the list of guesses.
         Once you give it at least 5 guesses it will try and return the guess with over 75% probability of being correct.

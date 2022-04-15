@@ -37,7 +37,7 @@ class Camera:
         self.frame = frame
         return frame
 
-    def find_yellow(self, frame=0) -> np.ndarray:
+    def find_yellow(self, frame : np.ndarray = 0) -> np.ndarray:
         """Find the yellow shapes in the image.
         
         If no frame is specified, the function will use the last frame from get_frame().
@@ -51,7 +51,7 @@ class Camera:
         
         return cv.bitwise_and(frame, frame, mask=self.yellow_mask)
 
-    def denoise_im(self, image):
+    def denoise_im(self, image : np.ndarray) -> np.ndarray:
         """Pre-process image to get rid of noise."""
         im_copy = image.copy()
         # blur the image to filter out some of the high frequency noise
@@ -64,7 +64,7 @@ class Camera:
 
         return dilation
 
-    def crop_image(self, image):
+    def crop_image(self, image : np.ndarray):
         """Crop the image to the yellow shape.
         
         get_frame() needs to be called before this in order for this function to work properly
