@@ -1,4 +1,4 @@
-# import libs
+"""A module to do image processing and recognition on numbers 1-5."""
 import cv2 as cv
 import numpy as np
 from collections import deque
@@ -8,7 +8,10 @@ import pytesseract as tes
 #tes.pytesseract.tesseract_cmd = 'C:\Program Files\Tesseract-OCR\\tesseract.exe'
 
 class Camera:
-    def __init__(self, tesseract_path):
+    """A class to handle the camera and do image recognition."""
+
+    def __init__(self, tesseract_path : str):
+        """Initialize the camera, add the path to the tesseract module, and set the bounds for the yellow color."""
         # open up a video stream
         self.cap = cv.VideoCapture(0)
         # exit the program if video capture isn't working
@@ -24,22 +27,32 @@ class Camera:
         tes.pytesseract.tesseract_cmd = tesseract_path
     
     def get_frame(self):
+        """Get the current frame from the camera."""
         ret, frame = self.cap.read()
         # make sure a frame is actually returned
         if not ret:
             print("Couldn't receive a frame")
             return False
 
+        self.frame = frame
+        return frame
+
+    def find_yellow(self, frame=0) -> np.ndarray:
+        """Find the yellow shapes in the image.
+        
+        If no frame is specified, the function will use the last frame from get_frame().
+        """
+        if frame == 0: frame = self.frame.copy()
         # convert the frame from rgb to hsv values
         hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
         # find all of the yellow in the image
         self.yellow_mask = cv.inRange(hsv, self.lower_yellow, self.upper_yellow)
         # apply the mask to the display frame
-        self.frame = cv.bitwise_and(frame, frame, mask=self.yellow_mask)
-        return self.frame
+        
+        return cv.bitwise_and(frame, frame, mask=self.yellow_mask)
 
-    # useful pre-processing step that gets rid of a lot of image noise
     def denoise_im(self, image):
+        """Pre-process image to get rid of noise."""
         im_copy = image.copy()
         # blur the image to filter out some of the high frequency noise
         blur = cv.blur(im_copy, (10,10))
@@ -51,8 +64,11 @@ class Camera:
 
         return dilation
 
-    # get_frame() needs to be called before this in order for this function to work properly
     def crop_image(self, image):
+        """Crop the image to the yellow shape.
+        
+        get_frame() needs to be called before this in order for this function to work properly
+        """
         contours, hierarchy = cv.findContours(self.yellow_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
         if len(contours) > 0:
             # create a bounding box around the largest contour
@@ -64,8 +80,11 @@ class Camera:
         else:
             return image, (0, 0, 0, 0)
 
-    # get_frame() needs to be called before this in order for this function to work properly
     def get_im_text(self):
+        """Get the text from the image.
+        
+        get_frame() needs to be called before this in order for this function to work properly
+        """
         # config for image detection
         # Detects only digits
         #custom_config = r'--oem 3 --psm 6 outputbase digits'
@@ -77,33 +96,15 @@ class Camera:
 
         return message, denoised_image
 
-    def mvg_avg(self, avg_pos, bounds):
-        # calculate the box center given x,y, width, height
-        new_pos_x = bounds[0] + bounds[2]/2
-        new_pos_y = bounds[1] + bounds[3]/2
-
-        # starting deleting old entries once the size of the list is above 30
-        if len(avg_pos) > 15:
-            avg_pos.rotate(1)
-            avg_pos[0] = (new_pos_x, new_pos_y)
-        else:
-            avg_pos.append((new_pos_x, new_pos_y))
-
-        # average all of the positions
-        xsum = 0
-        ysum = 0
-        for pos in avg_pos:
-            xsum += pos[0]
-            ysum += pos[1]
-        return xsum/len(avg_pos), ysum/len(avg_pos)
-
     def close_video(self):
+        """Close the video stream."""
         self.cap.release()
         cv.destroyAllWindows()
         return
     
-    def display_image(self):
-        cv.imshow('frame', self.frame)
+    def display_image(self, frame=0):
+        """Show the image on screen."""
+        cv.imshow('frame', self.frame if frame == 0 else frame)
             # press q to stop the program (nothing else will work)
         if cv.waitKey(1) == ord('q'):
             self.close_video()

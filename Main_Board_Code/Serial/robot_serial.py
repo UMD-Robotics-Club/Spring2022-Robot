@@ -1,10 +1,13 @@
-import serial # pip install pyserial
+"""Holds a class that handles the serial communication with the robot."""
+import serial # pip install pyserial to get this module
 from time import sleep
 from time import time
 
 class robot_serial:
-    # give it the path to the serial port and set a baud rate. (Default is 115200)
+    """This class is used to send and recieve data from the arduino."""
+
     def __init__(self, serial_port, baud_rate=115200):
+        """Give a path to the COM port and a baud rate. Default baud rate is 115200."""
         # create a serial port object
         self.port = serial.Serial(serial_port, baud_rate, timeout=0.5)
         message = ""
@@ -16,7 +19,12 @@ class robot_serial:
 
     # will keep sending the serial command until it recieves a response or the timeout is reached
     # will return true if a response was recieved, false if it reached the timeout
-    def send_confirmed_message(self, message, timeout=2.5, recieve_confirmation='recieved'):
+    def send_confirmed_message(self, message : str, timeout=2.5, recieve_confirmation='recieved') -> str:
+        """Send a serial message and wait for a confirmation message.
+
+        Will keep sending the serial command until it recieves a response or the timeout is reached
+        and will return true if a response was recieved, false if it reached the timeout
+        """   
         return_mes = ""
         start_time = time()
         while (return_mes.find(recieve_confirmation) == -1) and (time() - start_time < timeout):
@@ -24,13 +32,17 @@ class robot_serial:
             return_mes = self.port.readline().decode('utf-8')
         return return_mes
 
-    # send a message and does not wait for a response
     def send_message(self, message):
+        """Send a message and do not wait for a response."""
         self.port.write(message)
-        return
+        return ""
 
-    # sends the get sonar command and then automatically processes all of the data and returns it in an array
-    def getSonar(self, timeout=1):
+    def getSonar(self, timeout=1.0) -> list:
+        """Send the getSonar command and return an array of the distances and angles in cm.
+        
+        Returns a list of tuples with the first eleement in the tuple being the angle and the second being the distance.
+        [(angle0, dist0), (angle1, dist1), ...]
+        """
         self.send_confirmed_message(b"!getSonar;\n", recieve_confirmation='getSonar')
         message = ""
         start_time = time()
@@ -52,8 +64,8 @@ class robot_serial:
                     print("Error converting to float while reading sonar array")
         return dist_array
     
-    # sends the getMoisture command and then automatically processes the serial data and return a percentage
-    def getMoisture(self, timeout=1):
+    def getMoisture(self, timeout=1) -> float:
+        """Send the getMoisture command and then automatically processes the serial data and return a percentage."""
         self.send_confirmed_message(b"!getMoisture;\n", recieve_confirmation='getMoisture')
         message = ""
         start_time = time()
@@ -74,15 +86,14 @@ class robot_serial:
                         return -1
             message = self.port.readline().decode('utf-8')
         
-    # set the motor speeds
-    def setMotor(self, left_speed, right_speed):
+    def setMotor(self, left_speed : float, right_speed : float) -> str:
+        """Set the motor speeds."""
         message = "!setMotor," + str(left_speed) + "," + str(right_speed) + ";\n"
         return self.send_confirmed_message(bytes(message, 'utf-8'), recieve_confirmation='setting motor')
     
-    # close the serial port. Call this on program exit
     def close(self):
+        """Close the serial port. Call this on program exit."""
         self.port.close()
-        return
 
 
 

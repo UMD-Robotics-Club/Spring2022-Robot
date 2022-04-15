@@ -1,7 +1,10 @@
 import RPi.GPIO as GPIO
 import time
 class motor:
-    def __init__(self, direction_pin, speed_pin, enable_pin, wheel_diameter=0):
+    """Keeps track of all motor data and has several functions to setup and control the motor."""
+
+    def __init__(self, direction_pin : int, speed_pin : int, enable_pin : int, wheel_diameter=0):
+        """Set up all GPIO for motor control."""
         # define some default parameters
         self.velocity = 0
         self.wheel_diameter = wheel_diameter
@@ -23,7 +26,8 @@ class motor:
         self.speed = GPIO.PWM(self.speed_pin, 100)
         self.speed.ChangeDutyCycle(abs(self.velocity)*100)
 
-    def set_velocity(self, velocity):
+    def set_velocity(self, velocity : float):
+        """Set the velocity of the motor. Can be a value from -1 to 1."""
         self.velocity = velocity
         # set direction based on if velocity is positive or negative
         if(velocity < 0):
@@ -37,20 +41,26 @@ class motor:
         # set speed based on velocity
         self.speed.ChangeDutyCycle(abs(self.velocity)*100)
 
-    # takes a true or false value to enable or disable the motor
-    def enable(self, on_or_off):
+    def enable(self, on_or_off : bool):
+        """Enable or disable the motor."""
         GPIO.output(self.enable_pin, on_or_off)
     
-    def set_wheel_diameter(self, diameter):
+    def set_wheel_diameter(self, diameter : float):
+        """Set the diameter of the wheel. This can be helpful for distance or angle measurement if encoders are used."""
         self.wheel_diameter = diameter
     def get_circumference(self):
+        """Get the circumference of the wheel."""
         return self.wheel_diameter * 3.14159265359
-    def invert_dir_pin(self, is_inverted):
+    def invert_dir_pin(self, is_inverted : bool):
+        """Invert the direction pin. This is useful if the motor is wired backwards or facing the other way."""
         self.is_inverted = is_inverted
 
 class drive_train:
+    """Keeps track of two motors and has a function to drive them in synchronicity."""
+
     # takes two motor objects and an optional IMU object to help with turning
-    def __init__(self, motor1, motor2, imu = None, initial_angle = 0):
+    def __init__(self, motor1 : motor, motor2 : motor, imu = None, initial_angle = 0.0):
+        """Set up the drive train."""
         self.motor1 = motor1
         self.motor2 = motor2
         self.imu = imu
@@ -65,7 +75,12 @@ class drive_train:
     
     # turn ratio is a number between 0 and 1 which controls how much the drive base will
     # turn relative to the velocity of the drive base
-    def set_turn_velocity(self, velocity, turn_ratio=0):
+    def set_turn_velocity(self, velocity:float, turn_ratio=0.0):
+        """Set the velocity of the drive train. Can be a value from -1 to 1.
+        
+        turn ratio is a number between 0 and 1 which controls how much the drive base will
+        turn relative to the velocity of the drive base
+        """
         self.velocity = velocity
         self.turn_ratio = turn_ratio
         # set the motor velocities based on the turn ratio and velocity
@@ -75,22 +90,6 @@ class drive_train:
         else:
             self.motor1.set_velocity(velocity*(1-2*turn_ratio))
             self.motor2.set_velocity(velocity)
-    
-    def turn_to_angle(self, angle):
-        if self.imu == None:
-            print("No IMU detected, cannot turn to a set angle without an imu initialized\nPlease add an IMU to the class initializer")
-            return 1/0 # <-- this is probably a bad idea to get the programmer's attention
-        # get the current angle
-        current_angle = self.imu.get_angle()
-        while current_angle > angle+8 or current_angle < angle-8:
-            # set the turn velocity based on the difference between the current angle and the angle we want to turn to
-            self.set_turn_velocity(self.velocity, (angle-current_angle)/(180*self.turn_ratio))
-            # update the current angle
-            current_angle = self.imu.get_angle()
-        # set the turn velocity to 0 to stop the motors
-        self.set_turn_velocity(0)
-        return self.imu.get_angle()
-    
 
 
         
