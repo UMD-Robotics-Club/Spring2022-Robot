@@ -7,7 +7,11 @@ import cv2 as cv
 from time import time
 
 # create a camera object
-vid = Cam('C:\Program Files\Tesseract-OCR\\tesseract.exe')
+# quinn's laptop path:
+# tes_path = 'C:\Program Files\Tesseract-OCR\\tesseract.exe'
+# quinn's desktop path:
+tes_path = "C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
+vid = Cam(tes_path)
 # initialize serial
 ser = Serial('COM4')
 # initialize the motor objects TODO: Make sure these pinds are correct
@@ -103,6 +107,8 @@ has_temporarily_lost_target = False
 is_confirming_target = False
 has_reached_checkpoint = False
 
+
+has_started_timer = False
 # set up the target object
 target = Target(0, 0)
 # get the x and y dimensions of the video frame from the camera
@@ -121,8 +127,9 @@ velocity = 0.37
 checkpoint_data = []
 print("Beggining search for checkpoint")
 while True:
-    yellow_frame = vid.get_frame()
-    _, coords = vid.crop_image(yellow_frame)
+    unprocessed_frame = vid.get_frame()
+    yellow_frame = vid.find_yellow(unprocessed_frame)
+    _, coords = vid.crop_image(yellow_frame.copy())
 
     # only update PID if the target is big enough
     if coords[2] * coords[3] > 100:
@@ -147,7 +154,7 @@ while True:
 
     # this block can be toggled on and off if you want a visual of what the camera is seeing
     if show_im:
-        display_image = yellow_frame.copy()
+        display_image = yellow_frame
         display_image = cv.circle(display_image, ((int)(coords[0]+coords[2]/2), (int)(
             coords[1]+coords[3]/2)), radius=5, color=(0, 0, 255), thickness=3)
         cv.rectangle(display_image, (coords[0], coords[1]), (
@@ -159,12 +166,16 @@ while True:
 
     if has_temporarily_lost_target:
         # start a timer
-        finding_timeout = time()
+        if not has_started_timer:
+            finding_timeout = time()
+            has_started_timer = True
         # if the target has been lost for more than 10 seconds, stop looking for it
         if time() - finding_timeout > 10:
             print("Could not find target in time. Going back to generic searching")
             has_temporarily_lost_target = False
             is_looking_for_checkpoint = True
+            has_started_timer = False
+            target.target_area = 0
 
         # use the last known target velocity and turn in that direction
         if coords[2]*coords[3] < 100:
@@ -179,6 +190,7 @@ while True:
             # ser.setMotor(0, 0) if is_using_motor_serial else dr_train.set_turn_velocity(0) #TODO uncomment this
             has_temporarily_lost_target = False
             is_looking_for_checkpoint = True
+            has_started_timer = False
 
     # this just makes the robot turn in a circle until it sees yellow
     if is_looking_for_checkpoint:
@@ -235,9 +247,9 @@ while True:
         sonar_data = ser.getSonar()
         shortest_dist = 10000
         for measurement in sonar_data:
-            if measurement < shortest_dist:
-                shortest_dist = measurement
-        checkpoint_data.append((ser.getMoisture(timeout=20), 0))
+            if measurement[1] < shortest_dist:
+                shortest_dist = measurement[1]
+        checkpoint_data.append((ser.getMoisture(timeout=20), shortest_dist))
         print("Moisture measurements taken:", checkpoint_data)
         has_reached_checkpoint = False
         is_looking_for_checkpoint = True

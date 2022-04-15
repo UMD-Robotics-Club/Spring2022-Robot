@@ -18,9 +18,6 @@ class Camera:
         if not self.cap.isOpened():
             print("Cannot open camera")
             return False
-        # upper and lower values for the yellow hue
-        self.lower_yellow = np.array([20, 115, 115])
-        self.upper_yellow = np.array([30, 255, 255])
         # keep track of the average center of mass of the yellow shapes
         self.avg_pos = deque([])
         # Mention the installed location of Tesseract-OCR in your system
@@ -37,19 +34,22 @@ class Camera:
         self.frame = frame
         return frame
 
-    def find_yellow(self, frame : np.ndarray = 0) -> np.ndarray:
+    def find_yellow(self, frame : np.ndarray) -> np.ndarray:
         """Find the yellow shapes in the image.
         
         If no frame is specified, the function will use the last frame from get_frame().
         """
-        if frame == 0: frame = self.frame.copy()
+
+        # upper and lower values for the yellow hue
+        lower_yellow = np.array([20, 115, 115])
+        upper_yellow = np.array([30, 255, 255])
         # convert the frame from rgb to hsv values
         hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
         # find all of the yellow in the image
-        self.yellow_mask = cv.inRange(hsv, self.lower_yellow, self.upper_yellow)
+        self.yellow_mask = cv.inRange(hsv, lower_yellow, upper_yellow)
         # apply the mask to the display frame
-        
-        return cv.bitwise_and(frame, frame, mask=self.yellow_mask)
+        masked = cv.bitwise_and(frame, frame, mask=self.yellow_mask)
+        return masked
 
     def denoise_im(self, image : np.ndarray) -> np.ndarray:
         """Pre-process image to get rid of noise."""
@@ -70,15 +70,16 @@ class Camera:
         get_frame() needs to be called before this in order for this function to work properly
         """
         contours, hierarchy = cv.findContours(self.yellow_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
+        cropped = image.copy()
         if len(contours) > 0:
             # create a bounding box around the largest contour
             c = max(contours, key=cv.contourArea)
             x, y, w, h = cv.boundingRect(c)
 
-            image = image[y:y+h, x:x+w]
-            return image, (x, y, w, h)
+            cropped = cropped[y:y+h, x:x+w]
+            return cropped, (x, y, w, h)
         else:
-            return image, (0, 0, 0, 0)
+            return cropped, (0, 0, 0, 0)
 
     def get_im_text(self):
         """Get the text from the image.
