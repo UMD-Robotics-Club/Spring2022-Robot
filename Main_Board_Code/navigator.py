@@ -30,7 +30,8 @@ class Target:
         """
         self.x = x
         self.y = y
-        self.target_area = 0
+        self.current_area = 0
+        self.past_area = 0
         self.velx = 0
         self.vely = 0
         self.velArea = 0
@@ -47,13 +48,14 @@ class Target:
         
         This function also updates the target's x and y values.
         """
+        self.past_area = self.current_area
+        self.current_area = new_area
         new_time = time()
         self.velx = (new_x - self.x) / (new_time - self.timer)
         self.vely = (new_y - self.y) / (new_time - self.timer)
-        self.velArea = (new_area - self.target_area) / (new_time - self.timer)
+        self.velArea = (self.current_area - self.past_area) / (new_time - self.timer)
         self.x = new_x
         self.y = new_y
-        self.target_area = new_area
         self.time = new_time
         return
 
@@ -99,11 +101,18 @@ class Target:
         self.guesses = []
         return
 
+# get the x and y dimensions of the video frame from the camera
+frame_center = vid.get_frame().shape
+frame_center = (frame_center[0] / 2, frame_center[1] / 2)
+
 # these are some quick config options which can control extra functionality of the code
 # TODO: use the jetson's GPIO instead of the arduino's for motor control
 is_using_motor_serial = True # if you want to use the arduino for motor control enable this
 show_im = True # if you want the camer'as current view to be displayed on screen, enable this
 
+#These variables automatically scale with the resolution of the camera
+min_area_thresh = int((vid.get_frame().shape[0]*vid.get_frame().shape[1])*500/(1920*1080)) # the minimum area of a target to be considered a target
+read_area_thresh = int((vid.get_frame().shape[0]*vid.get_frame().shape[1])*15000/(1920*1080)) # the minimum area of a target to try and read the number from the image
 
 
 # these variables keep track of what state the robot is in
@@ -117,9 +126,6 @@ has_reached_checkpoint = False
 has_started_timer = False
 # set up the target object
 target = Target(0, 0)
-# get the x and y dimensions of the video frame from the camera
-frame_dimensions = vid.get_frame().shape
-frame_dimensions = (frame_dimensions[0], frame_dimensions[1])
 
 # initialize controller data
 last_time = time()
@@ -129,7 +135,7 @@ vel_error = 0
 kp, kd = 1, 1
 # the speed of the robot is currently just kept constant, but should be proportional to the area of the yellow blob
 velocity = 0.37
-
+turn_controller = 0
 
 checkpoint_data = []
 print("Beggining search for checkpoint")
@@ -137,27 +143,29 @@ while True:
     unprocessed_frame = vid.get_frame()
     yellow_frame = vid.find_yellow(unprocessed_frame)
     _, coords = vid.crop_image(yellow_frame.copy())
-
+    target.current_area = coords[2] * coords[3]
+    # update the PD controller with new measurements
+    current_time = time()
     # only update PID if the target is big enough
-    if coords[2] * coords[3] > 100:
-        # update the PD controller with new measurements
-        current_time = time()
+    if target.current_area > min_area_thresh:
+        cent_x = coords[0] + coords[2] / 2
+        cent_y = coords[1] + coords[3] / 2
         # start moving towards the target to confirm its identity and keep the target centered
         # calculate proportional error
-        prop_error = frame_dimensions[0] / 2 - coords[0]
+        prop_error = frame_center[0] - cent_x
         # calculate velocity error
-        vel_error = ((frame_dimensions[0] - coords[0]) -
-                     (frame_dimensions[0] - target.x)) / (current_time - last_time)
+        vel_error = ((frame_center[0] - cent_x) -
+                     (frame_center[0] - target.x)) / (current_time - last_time)
         # this controller is designed to keep the target centered and controls how much the robot turns
         turn_controller = kp * prop_error + kd * vel_error
         # normalize the controller value to be between -1 and 1
-        # TODO: Figure out the values needed to scale properly
-        turn_controller /= (2*frame_dimensions[0]*kp*kd)
-        turn_controller = turn_controller - 7
-
+        turn_controller /= (2*frame_center[0]*kp*kd)
+        if turn_controller > 1:
+            turn_controller = 1
+        elif turn_controller < -1:
+            turn_controller = -1
         # this tracks the target's position, velocity, area, and change in area over time
-        target.calc_vel((coords[0] + coords[2] / 2),
-                        (coords[1] + coords[3] / 2), (coords[2] * coords[3]))
+        target.calc_vel(cent_x, cent_y, target.current_area)
 
     # this block can be toggled on and off if you want a visual of what the camera is seeing
     if show_im:
@@ -182,10 +190,10 @@ while True:
             has_temporarily_lost_target = False
             is_looking_for_checkpoint = True
             has_started_timer = False
-            target.target_area = 0
+            target.current_area = 0
 
         # use the last known target velocity and turn in that direction
-        if coords[2]*coords[3] < 100:
+        if target.current_area < min_area_thresh:
             if target.velx != 0:
                 turn_direction = target.velx/abs(target.velx)
             else:
@@ -201,7 +209,7 @@ while True:
 
     # this just makes the robot turn in a circle until it sees yellow
     if is_looking_for_checkpoint:
-        if target.target_area > 100:
+        if target.current_area > min_area_thresh:
             is_looking_for_checkpoint = False
             is_moving_towards_target = True
             # ser.setMotor(0, 0) if is_using_motor_serial else dr_train.set_turn_velocity(0) #TODO uncomment this
@@ -230,7 +238,7 @@ while True:
         last_time = current_time
         #print("Moving towards target to confirm identity.", coords[2]*coords[3], turn_controller)
         # run image recognition if the target area is big enough
-        if target.target_area > 15000:  # TODO: this area depends on the webcam used. Make this a variable that's automaticaly calculated
+        if target.current_area > read_area_thresh:
             # ser.setMotor(0,0) if is_using_motor_serial else dr_train.set_turn_velocity(0) #TODO uncomment this
             is_moving_towards_target = False
             is_confirming_target = True
@@ -271,8 +279,7 @@ while True:
         print("Moisture measurements taken:", checkpoint_data)
         has_reached_checkpoint = False
         is_looking_for_checkpoint = True
-        target.target_area = 0
-        # TODO: keep track of a list of visited checkpoints and avoid them while searching for new checkpoints
+        target.current_area = 0
         print("looking for new checkpoint")
 
 

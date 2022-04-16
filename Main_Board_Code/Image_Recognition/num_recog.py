@@ -40,8 +40,11 @@ class Camera:
         If no frame is specified, the function will use the last frame from get_frame().
         """
         # upper and lower values for the yellow hue
-        lower_yellow = np.array([20, 115, 115])
-        upper_yellow = np.array([30, 255, 255])
+        #lower_yellow = np.array([20, 115, 115])
+        #upper_yellow = np.array([30, 255, 255])
+        # matlab colors
+        lower_yellow = np.array([22, 43, 185])
+        upper_yellow = np.array([37, 178, 255])
         # convert the frame from rgb to hsv values
         hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
         # find all of the yellow in the image
