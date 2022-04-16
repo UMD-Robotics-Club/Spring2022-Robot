@@ -75,13 +75,13 @@ class Target:
         # check to see if the list is long enough to find the highest probability
         if len(self.guesses) >= 5:
             # initialize a percentile array which keeps track of the percentiles of each guess
-            percent_occurencs = [0, 0, 0, 0, 0]
+            percent_occurencs = [0, 0, 0, 0, 0, 0]
             # go through each of the guesses and tally of the percents
             for num in self.guesses:
                 percent_occurencs[num] += 1/len(self.guesses)
             # find the highest probability guess
             highest_percent, highest_num = 0, 0
-            for i in range(len(percent_occurencs)):
+            for i in range(len(percent_occurencs)-1):
                 if percent_occurencs[i] > highest_percent:
                     highest_percent = percent_occurencs[i]
                     highest_num = i
@@ -99,6 +99,8 @@ class Target:
 
 is_using_motor_serial = True
 show_im = True
+
+
 
 # these variables keep track of what state the robot is in
 is_looking_for_checkpoint = True
@@ -123,6 +125,7 @@ vel_error = 0
 kp, kd = 1, 1
 # the speed of the robot is currently just kept constant, but should be proportional to the area of the yellow blob
 velocity = 0.37
+
 
 checkpoint_data = []
 print("Beggining search for checkpoint")
