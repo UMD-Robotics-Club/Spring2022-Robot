@@ -10,10 +10,10 @@ import pytesseract as tes
 class Camera:
     """A class to handle the camera and do image recognition."""
 
-    def __init__(self, tesseract_path : str):
+    def __init__(self, tesseract_path : str, cam_num : int = 0):
         """Initialize the camera, add the path to the tesseract module, and set the bounds for the yellow color."""
         # open up a video stream
-        self.cap = cv.VideoCapture(0)
+        self.cap = cv.VideoCapture(cam_num)
         # exit the program if video capture isn't working
         if not self.cap.isOpened():
             print("Cannot open camera")
@@ -39,7 +39,6 @@ class Camera:
         
         If no frame is specified, the function will use the last frame from get_frame().
         """
-
         # upper and lower values for the yellow hue
         lower_yellow = np.array([20, 115, 115])
         upper_yellow = np.array([30, 255, 255])

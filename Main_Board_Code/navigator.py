@@ -5,16 +5,15 @@ from IMU.imu import imu
 #import Motor_Control.motor as MC
 import cv2 as cv
 from time import time
+from time import sleep
 
 # create a camera object
-# quinn's laptop path:
-# tes_path = 'C:\Program Files\Tesseract-OCR\\tesseract.exe'
-# quinn's desktop path:
-tes_path = "C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
+# quinn's desktop and laptop path:
+tes_path = 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'
 vid = Cam(tes_path)
 # initialize serial
 ser = Serial('COM4')
-# initialize the motor objects TODO: Make sure these pinds are correct
+# initialize the motor objects TODO: Make sure these pins are correct
 #motor1 = MC.motor(31, 32, 29)
 #motor2 = MC.motor(35, 33, 36)
 # create a drivetrain controller object
@@ -34,8 +33,12 @@ class Target:
         self.target_area = 0
         self.velx = 0
         self.vely = 0
+        self.velArea = 0
         self.timer = time()
         self.guesses = []
+        self.time = time()
+        # keeps track of the checkpoints that have been reached and measured already
+        self.reached_targets = [False, False, False, False, False]
         return
 
     # gets the velocity of the target. This function needs to be called often for accurate measurements
@@ -55,7 +58,7 @@ class Target:
         return
 
     # can collect a sample of tesseract guesses and will take the guess that's the highest probability
-    def infer_target(self, text : str) -> str:
+    def infer_target(self, ocr_text : str) -> str:
         """Do statistical analysis on a list of guesses to choose the guess with the highest probability of being correct.
 
         Give a string of the current target's identity and it will add it to the list of guesses.
@@ -64,7 +67,7 @@ class Target:
         """
         # convert the string to a number
         try:
-            number = int(text)
+            number = int(ocr_text)
         except ValueError:
             return 0
         # make sure the number is valid or else exit
@@ -75,10 +78,10 @@ class Target:
         # check to see if the list is long enough to find the highest probability
         if len(self.guesses) >= 5:
             # initialize a percentile array which keeps track of the percentiles of each guess
-            percent_occurencs = [0, 0, 0, 0, 0, 0]
+            percent_occurencs = [0, 0, 0, 0, 0]
             # go through each of the guesses and tally of the percents
             for num in self.guesses:
-                percent_occurencs[num] += 1/len(self.guesses)
+                percent_occurencs[num-1] += 1/len(self.guesses)
             # find the highest probability guess
             highest_percent, highest_num = 0, 0
             for i in range(len(percent_occurencs)-1):
@@ -87,7 +90,7 @@ class Target:
                     highest_num = i
             # return the highest probability guess as long as it's at least 75% confident
             if highest_percent > 0.75 and highest_num != 0:
-                return highest_num
+                return highest_num+1
 
         return 0
 
@@ -96,9 +99,10 @@ class Target:
         self.guesses = []
         return
 
-
-is_using_motor_serial = True
-show_im = True
+# these are some quick config options which can control extra functionality of the code
+# TODO: use the jetson's GPIO instead of the arduino's for motor control
+is_using_motor_serial = True # if you want to use the arduino for motor control enable this
+show_im = True # if you want the camer'as current view to be displayed on screen, enable this
 
 
 
@@ -242,8 +246,19 @@ while True:
         target_num = target.infer_target(text)
         if target_num != 0:
             print("Found target with number:", target_num)
-            is_confirming_target = False
-            has_reached_checkpoint = True
+            # check to see if it has already visited this target
+            if not target.reached_targets[target_num-1]:
+                # add the new target to the list of found targets
+                target.reached_targets[target_num-1] = True
+                is_confirming_target = False
+                has_reached_checkpoint = True
+            else:
+                print("This target has already been visited.")
+                is_confirming_target = False
+                is_looking_for_checkpoint = True
+                # turn the robot away from this checkpoint so it doesn't refind it while searching
+                # ser.setMotor(0.3, -0.3) if is_using_motor_serial else dr_train.set_turn_velocity(0.3, turn_ratio=1) #TODO uncomment this
+                # sleep(2)
 
     if has_reached_checkpoint:
         print("Getting moisture measurements...")
