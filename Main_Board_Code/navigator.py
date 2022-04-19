@@ -1,8 +1,7 @@
 """This is the main code for the robot. It contains the main loop and navigation logic."""
 from Serial.robot_serial import robot_serial as Serial
 from Image_Recognition.num_recog import Camera as Cam
-from IMU.imu import imu
-#import Motor_Control.motor as MC
+import Motor_Control.motor as MC
 import cv2 as cv
 from time import time
 from time import sleep
@@ -13,11 +12,11 @@ tes_path = 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'
 vid = Cam(tes_path)
 # initialize serial
 ser = Serial('COM4')
-# initialize the motor objects TODO: Make sure these pins are correct
-#motor1 = MC.motor(31, 32, 29)
-#motor2 = MC.motor(35, 33, 36)
+# initialize the motor objects 
+motor1 = MC.motor(31, 32) #TODO: Make sure these pins are correct
+motor2 = MC.motor(35, 33) #TODO: Make sure these pins are correct
 # create a drivetrain controller object
-#dr_train = MC.drive_train(motor1, motor2)
+dr_train = MC.drive_train(motor1, motor2)
 
 
 class Target:
@@ -37,7 +36,6 @@ class Target:
         self.velArea = 0
         self.timer = time()
         self.guesses = []
-        self.time = time()
         # keeps track of the checkpoints that have been reached and measured already
         self.reached_targets = [False, False, False, False, False]
         return
@@ -56,7 +54,7 @@ class Target:
         self.velArea = (self.current_area - self.past_area) / (new_time - self.timer)
         self.x = new_x
         self.y = new_y
-        self.time = new_time
+        self.timer = new_time
         return
 
     # can collect a sample of tesseract guesses and will take the guess that's the highest probability
@@ -101,16 +99,15 @@ class Target:
         self.guesses = []
         return
 
-# get the x and y dimensions of the video frame from the camera
+# get the x and y center of the video frame from the camera
 frame_center = vid.get_frame().shape
 frame_center = (frame_center[0] / 2, frame_center[1] / 2)
 
 # these are some quick config options which can control extra functionality of the code
-# TODO: use the jetson's GPIO instead of the arduino's for motor control
-is_using_motor_serial = True # if you want to use the arduino for motor control enable this
-show_im = True # if you want the camer'as current view to be displayed on screen, enable this
+is_using_motor_serial = False # if you want to use the arduino for motor control enable this
+show_im = True # if you want the camera's current view to be displayed on screen, enable this
 
-#These variables automatically scale with the resolution of the camera
+# These variables automatically scale with the resolution of the camera
 min_area_thresh = int((vid.get_frame().shape[0]*vid.get_frame().shape[1])*500/(1920*1080)) # the minimum area of a target to be considered a target
 read_area_thresh = int((vid.get_frame().shape[0]*vid.get_frame().shape[1])*15000/(1920*1080)) # the minimum area of a target to try and read the number from the image
 
@@ -121,9 +118,8 @@ is_moving_towards_target = False
 has_temporarily_lost_target = False
 is_confirming_target = False
 has_reached_checkpoint = False
-
-
 has_started_timer = False
+
 # set up the target object
 target = Target(0, 0)
 
@@ -132,12 +128,12 @@ last_time = time()
 current_time = time()
 prop_error = 0
 vel_error = 0
-kp, kd = 1, 1
+kp, kd = 1, 0.1
 # the speed of the robot is currently just kept constant, but should be proportional to the area of the yellow blob
-velocity = 0.37
-turn_controller = 0
+velocity = 0.37 # this is generally the max speed the robot will travel at
+turn_controller = 0 # this is the controller for the robot's turning, it is set to 0 initially
 
-checkpoint_data = []
+checkpoint_data = [] # this holds all of the data that the robot has gathered from measurements
 print("Beggining search for checkpoint")
 while True:
     unprocessed_frame = vid.get_frame()
@@ -159,7 +155,7 @@ while True:
         # this controller is designed to keep the target centered and controls how much the robot turns
         turn_controller = kp * prop_error + kd * vel_error
         # normalize the controller value to be between -1 and 1
-        turn_controller /= (2*frame_center[0]*kp*kd)
+        turn_controller /= (2*frame_center[0]*kp*kd) #TODO: Consider removing the kp*kd term
         if turn_controller > 1:
             turn_controller = 1
         elif turn_controller < -1:
@@ -198,11 +194,11 @@ while True:
                 turn_direction = target.velx/abs(target.velx)
             else:
                 turn_direction = 1
-            # ser.setMotor(0.2*turn_direction, -0.2*turn_direction) if is_using_motor_serial else dr_train.set_turn_velocity(0.2, turn_ratio=turn_direction) #TODO uncomment this
+            ser.setMotor(0.2*turn_direction, -0.2*turn_direction) if is_using_motor_serial else dr_train.set_turn_velocity(0.2, turn_ratio=turn_direction)
         else:
             # stop moving and go to looking for checkpoint state
             print("Target relocated, resuming movement...")
-            # ser.setMotor(0, 0) if is_using_motor_serial else dr_train.set_turn_velocity(0) #TODO uncomment this
+            ser.setMotor(0, 0) if is_using_motor_serial else dr_train.set_turn_velocity(0)
             has_temporarily_lost_target = False
             is_looking_for_checkpoint = True
             has_started_timer = False
@@ -212,13 +208,12 @@ while True:
         if target.current_area > min_area_thresh:
             is_looking_for_checkpoint = False
             is_moving_towards_target = True
-            # ser.setMotor(0, 0) if is_using_motor_serial else dr_train.set_turn_velocity(0) #TODO uncomment this
+            ser.setMotor(0, 0) if is_using_motor_serial else dr_train.set_turn_velocity(0)
 
             print("Potential Target Found, Moving towards target.")
         else:
-            pass  # TODO get rid of the pass statement and add motor commands here
             # begin turning the robot until a target is found
-            # ser.setMotor(0.3, -0.3) if is_using_motor_serial else dr_train.set_turn_velocity(0.3, turn_ratio=1) #TODO uncomment this
+            ser.setMotor(0.3, -0.3) if is_using_motor_serial else dr_train.set_turn_velocity(0.3, turn_ratio=1)
 
     # this makes the robot move towards the largest blob of yellow
     if is_moving_towards_target:
@@ -226,7 +221,7 @@ while True:
             print("Target is lost, attempting to find it again.")
             has_temporarily_lost_target = True
             is_moving_towards_target = False
-            # ser.setMotor(0,0) if is_using_motor_serial else dr_train.set_turn_velocity(0) #TODO uncomment this
+            ser.setMotor(0,0) if is_using_motor_serial else dr_train.set_turn_velocity(0)
 
         if turn_controller >= 0:
             motor1 = velocity
@@ -234,12 +229,12 @@ while True:
         else:
             motor1 = velocity*(1-2*turn_controller)
             motor2 = velocity
-        # ser.setMotor(motor1,motor2) if is_using_motor_serial else dr_train.set_turn_velocity(velocity, turn_ratio=turn_ratio) #TODO uncomment this
+        ser.setMotor(motor1,motor2) if is_using_motor_serial else dr_train.set_turn_velocity(velocity, turn_ratio=turn_controller)
         last_time = current_time
         #print("Moving towards target to confirm identity.", coords[2]*coords[3], turn_controller)
         # run image recognition if the target area is big enough
         if target.current_area > read_area_thresh:
-            # ser.setMotor(0,0) if is_using_motor_serial else dr_train.set_turn_velocity(0) #TODO uncomment this
+            ser.setMotor(0,0) if is_using_motor_serial else dr_train.set_turn_velocity(0)
             is_moving_towards_target = False
             is_confirming_target = True
             target.clear_past_guesses()
@@ -265,8 +260,8 @@ while True:
                 is_confirming_target = False
                 is_looking_for_checkpoint = True
                 # turn the robot away from this checkpoint so it doesn't refind it while searching
-                # ser.setMotor(0.3, -0.3) if is_using_motor_serial else dr_train.set_turn_velocity(0.3, turn_ratio=1) #TODO uncomment this
-                # sleep(2)
+                ser.setMotor(0.3, -0.3) if is_using_motor_serial else dr_train.set_turn_velocity(0.3, turn_ratio=1)
+                sleep(2)
 
     if has_reached_checkpoint:
         print("Getting moisture measurements...")

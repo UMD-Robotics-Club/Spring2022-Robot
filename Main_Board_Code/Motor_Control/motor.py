@@ -3,7 +3,7 @@ import time
 class motor:
     """Keeps track of all motor data and has several functions to setup and control the motor."""
 
-    def __init__(self, direction_pin : int, speed_pin : int, enable_pin : int, wheel_diameter : float = 0.0):
+    def __init__(self, direction_pin : int, speed_pin : int, wheel_diameter : float = 0.0):
         """Set up all GPIO for motor control."""
         # define some default parameters
         self.velocity = 0
@@ -85,20 +85,6 @@ class drive_train:
             self.motor1.set_velocity(velocity*(1-2*abs(turn_ratio)))
             self.motor2.set_velocity(-velocity)
     
-    def turn_to_angle(self, angle):
-        if self.imu == None:
-            print("No IMU detected, cannot turn to a set angle without an imu initialized\nPlease add an IMU to the class initializer")
-            return 1/0 # <-- this is probably a bad idea to get the programmer's attention
-        # get the current angle
-        current_angle = self.imu.get_angle()
-        while current_angle > angle+8 or current_angle < angle-8:
-            # set the turn velocity based on the difference between the current angle and the angle we want to turn to
-            self.set_turn_velocity(self.velocity, (angle-current_angle)/(180*self.turn_ratio))
-            # update the current angle
-            current_angle = self.imu.get_angle()
-        # set the turn velocity to 0 to stop the motors
-        self.set_turn_velocity(0)
-        return self.imu.get_angle()
     
 
 
