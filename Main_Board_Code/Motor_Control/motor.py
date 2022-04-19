@@ -1,4 +1,4 @@
-import RPi.GPIO as GPIO
+import Jetson.GPIO as GPIO
 import time
 class motor:
     """Keeps track of all motor data and has several functions to setup and control the motor."""
@@ -11,19 +11,18 @@ class motor:
         self.is_inverted = False
         # define all pins
         self.direction_pin = direction_pin
-        self.motor_pin_b = speed_pin
-        self.enable_pin = enable_pin
+        self.speed_pin = speed_pin
         # Pin Setup:
         # Board pin-numbering scheme
         GPIO.setmode(GPIO.BOARD)
         # Set both pins LOW and duty cycle to 0 to keep the motor idle
         GPIO.setup(self.direction_pin, GPIO.OUT, initial=GPIO.LOW)
-        GPIO.setup(self.speed_pin, GPIO.OUT, initial=GPIO.LOW)
-        GPIO.setup(self.enable_pin, GPIO.OUT, initial=GPIO.LOW)
+        GPIO.setup(self.speed_pin, GPIO.OUT, initial=GPIO.HIGH)
         GPIO.output(self.direction_pin, GPIO.LOW)
 
         # set up PWM for speed control
         self.speed = GPIO.PWM(self.speed_pin, 100)
+        self.speed.start(50)
         self.speed.ChangeDutyCycle(abs(self.velocity)*100)
 
     def set_velocity(self, velocity : float):
@@ -81,10 +80,26 @@ class drive_train:
         # set the motor velocities based on the turn ratio and velocity
         if turn_ratio >= 0:
             self.motor1.set_velocity(velocity)
-            self.motor2.set_velocity(velocity*(1-2*turn_ratio))
+            self.motor2.set_velocity(-velocity*(1-2*turn_ratio))
         else:
-            self.motor1.set_velocity(velocity*(1-2*turn_ratio))
-            self.motor2.set_velocity(velocity)
+            self.motor1.set_velocity(velocity*(1-2*abs(turn_ratio)))
+            self.motor2.set_velocity(-velocity)
+    
+    def turn_to_angle(self, angle):
+        if self.imu == None:
+            print("No IMU detected, cannot turn to a set angle without an imu initialized\nPlease add an IMU to the class initializer")
+            return 1/0 # <-- this is probably a bad idea to get the programmer's attention
+        # get the current angle
+        current_angle = self.imu.get_angle()
+        while current_angle > angle+8 or current_angle < angle-8:
+            # set the turn velocity based on the difference between the current angle and the angle we want to turn to
+            self.set_turn_velocity(self.velocity, (angle-current_angle)/(180*self.turn_ratio))
+            # update the current angle
+            current_angle = self.imu.get_angle()
+        # set the turn velocity to 0 to stop the motors
+        self.set_turn_velocity(0)
+        return self.imu.get_angle()
+    
 
 
         
