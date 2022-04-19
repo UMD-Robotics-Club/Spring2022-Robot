@@ -10,9 +10,9 @@ from time import sleep
 # create a camera object
 # quinn's desktop and laptop path:
 tes_path = 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'
-vid = Cam(tes_path)
+vid = Cam(tes_path, cam_num=0)
 # initialize serial
-ser = Serial('COM4')
+ser = Serial('COM5')
 # initialize the motor objects TODO: Make sure these pins are correct
 #motor1 = MC.motor(31, 32, 29)
 #motor2 = MC.motor(35, 33, 36)
