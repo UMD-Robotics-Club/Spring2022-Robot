@@ -23,7 +23,7 @@ class Camera:
         # Mention the installed location of Tesseract-OCR in your system
         tes.pytesseract.tesseract_cmd = tesseract_path
     
-    def get_frame(self):
+    def get_frame(self) -> np.ndarray:
         """Get the current frame from the camera."""
         ret, frame = self.cap.read()
         # make sure a frame is actually returned
@@ -43,8 +43,8 @@ class Camera:
         #lower_yellow = np.array([20, 115, 115])
         #upper_yellow = np.array([30, 255, 255])
         # matlab colors
-        lower_yellow = np.array([25, 68, 126])
-        upper_yellow = np.array([50, 255, 255])
+        lower_yellow = np.array([33, 100, 90])
+        upper_yellow = np.array([46, 255, 255])
         # convert the frame from rgb to hsv values
         hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
         # find all of the yellow in the image
