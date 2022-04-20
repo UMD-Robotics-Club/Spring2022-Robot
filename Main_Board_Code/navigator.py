@@ -1,4 +1,5 @@
 """This is the main code for the robot. It contains the main loop and navigation logic."""
+from Main_Board_Code.Motor_Control.motor import drive_train
 from Serial.robot_serial import robot_serial as Serial
 from Image_Recognition.num_recog import Camera as Cam
 import Motor_Control.motor as MC
@@ -136,6 +137,7 @@ turn_controller = 0 # this is the controller for the robot's turning, it is set 
 checkpoint_data = [] # this holds all of the data that the robot has gathered from measurements
 print("Beggining search for checkpoint")
 while True:
+    dr_train.update()
     unprocessed_frame = vid.get_frame()
     yellow_frame = vid.find_yellow(unprocessed_frame)
     _, coords = vid.crop_image(yellow_frame.copy())

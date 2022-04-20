@@ -1,7 +1,11 @@
 import Jetson.GPIO as GPIO
 from time import time
+
 class motor:
+    """Allows for easy control of DC motor drivers using the jetson's GPIO pins."""
+
     def __init__(self, direction_pin : int, speed_pin : int, max_accel : float = 0.01):
+        """Initialize the motor."""
         # define some default parameters
         self.is_inverted = False
         # define all pins
@@ -54,6 +58,7 @@ class motor:
         self.target_velocity = velocity
     
     def invert_dir_pin(self, is_inverted):
+        """Change the default direction of the motor if the motor is wired in reverse."""
         self.is_inverted = is_inverted
     
     def update(self):
@@ -83,6 +88,7 @@ class drive_train:
 
     # takes two motor objects and an optional IMU object to help with turning
     def __init__(self, motor1 : motor, motor2 : motor):
+        """Initialize the drive train."""
         self.motor1 = motor1
         self.motor2 = motor2
         self.velocity = 0
@@ -91,6 +97,7 @@ class drive_train:
     # turn ratio is a number between 0 and 1 which controls how much the drive base will
     # turn relative to the velocity of the drive base
     def set_turn_velocity(self, velocity : float, turn_ratio : float = 0):
+        """Set the velocity of the drive base."""
         self.velocity = velocity
         self.turn_ratio = turn_ratio
         # set the motor velocities based on the turn ratio and velocity
