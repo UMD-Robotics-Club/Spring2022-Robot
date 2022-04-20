@@ -267,12 +267,12 @@ while True:
 
     if has_reached_checkpoint:
         print("Getting moisture measurements...")
-        sonar_data = ser.getSonar()
-        shortest_dist = 10000
+        #sonar_data = ser.getSonar()
+        '''shortest_dist = 10000
         for measurement in sonar_data:
             if measurement[1] < shortest_dist:
                 shortest_dist = measurement[1]
-        checkpoint_data.append((ser.getMoisture(timeout=20), shortest_dist))
+        checkpoint_data.append((ser.getMoisture(timeout=20), shortest_dist))'''
         print("Moisture measurements taken:", checkpoint_data)
         has_reached_checkpoint = False
         is_looking_for_checkpoint = True
