@@ -9,18 +9,18 @@ class motor:
         # define some default parameters
         self.is_inverted = False
         # define all pins
-        self.direction_pin = direction_pin
-        self.speed_pin = speed_pin
+        self.__direction_pin = direction_pin
+        self.__speed_pin = speed_pin
         # Pin Setup:
         # Board pin-numbering scheme
         GPIO.setmode(GPIO.BOARD)
         # Set both pins LOW and duty cycle to 0 to keep the motor idle
-        GPIO.setup(self.direction_pin, GPIO.OUT, initial=GPIO.LOW)
-        GPIO.setup(self.speed_pin, GPIO.OUT, initial=GPIO.HIGH)
-        GPIO.output(self.direction_pin, GPIO.LOW)
+        GPIO.setup(self.__direction_pin, GPIO.OUT, initial=GPIO.LOW)
+        GPIO.setup(self.__speed_pin, GPIO.OUT, initial=GPIO.HIGH)
+        GPIO.output(self.__direction_pin, GPIO.LOW)
 
         # set up PWM for speed control
-        self.speed = GPIO.PWM(self.speed_pin, 100)
+        self.speed = GPIO.PWM(self.__speed_pin, 100)
         self.speed.start(50)
         self.speed.ChangeDutyCycle(abs(self.velocity)*100)
         # all of the variables below are responsible for a gentle acceleration curve
@@ -28,7 +28,7 @@ class motor:
         self.current_time = time()
         self.accel = max_accel
         self.target_velocity = 0
-        self.current_velocity = 0
+        self.__current_velocity = 0
 
     def update_velocity(self, velocity : float):
         """Set the current velocity of the motor.
@@ -37,18 +37,18 @@ class motor:
         DO NOT CALL THIS FUCNTION DIRECTLY UNLESS YOU DON'T CARE ABOUT ACCELERATION!
         use set_target_velocity instead, and remember to coninually call update() to ensure the motor continues to accelerate.
         """
-        self.current_velocity = velocity
+        self.__current_velocity = velocity
         # set direction based on if velocity is positive or negative
-        if(self.current_velocity < 0):
+        if(self.__current_velocity < 0):
             # the False or self.is_inverted is a fast and fancy way of inverting the direction pin if is_inverted is true
             # Ask an EE major about it
-            GPIO.output(self.direction_pin, (False or self.is_inverted))
+            GPIO.output(self.__direction_pin, (False or self.is_inverted))
         else:
             # the True and not self.is_inverted is a fast and fancy way of inverting the direction pin if is_inverted is true
             # Ask an EE major about it
-            GPIO.output(self.direction_pin, (True and not self.is_inverted))
+            GPIO.output(self.__direction_pin, (True and not self.is_inverted))
         # set speed based on velocity
-        self.speed.ChangeDutyCycle(abs(self.current_velocity)*100)
+        self.speed.ChangeDutyCycle(abs(self.__current_velocity)*100)
     
     def set_target_velocity(self, velocity : float):
         """Set the target velocity of the motor.
@@ -71,13 +71,13 @@ class motor:
         delta_time = self.current_time - self.old_time
         # calculate the new current velocity based on the acceleration value
         vel_inc = round(self.accel * delta_time, 2)
-        vel_inc = vel_inc * (self.target_velocity - self.current_velocity) / abs(self.target_velocity - self.current_velocity)
+        vel_inc = vel_inc * (self.target_velocity - self.__current_velocity) / abs(self.target_velocity - self.__current_velocity)
 
         # check to see if the new velocity is going to be within 5% of the target velocity
-        if self.current_velocity + vel_inc < self.target_velocity*1.05 and self.current_velocity + vel_inc > self.target_velocity*0.95:
+        if self.__current_velocity + vel_inc < self.target_velocity*1.05 and self.__current_velocity + vel_inc > self.target_velocity*0.95:
             self.update_velocity(self.target_velocity)
         else: # if the new velocity is not within 5% of the target velocity, then accelerate
-            self.update_velocity(self.current_velocity + vel_inc)
+            self.update_velocity(self.__current_velocity + vel_inc)
 
         # set the old time to the current time
         self.old_time = self.current_time
@@ -89,8 +89,8 @@ class drive_train:
     # takes two motor objects and an optional IMU object to help with turning
     def __init__(self, motor1 : motor, motor2 : motor):
         """Initialize the drive train."""
-        self.motor1 = motor1
-        self.motor2 = motor2
+        self.__motor1 = motor1
+        self.__motor2 = motor2
         self.velocity = 0
         self.turn_ratio = 0
     
@@ -102,16 +102,16 @@ class drive_train:
         self.turn_ratio = turn_ratio
         # set the motor velocities based on the turn ratio and velocity
         if turn_ratio >= 0:
-            self.motor1.set_target_velocity(velocity)
-            self.motor2.set_target_velocity(-velocity*(1-2*turn_ratio))
+            self.__motor1.set_target_velocity(velocity)
+            self.__motor2.set_target_velocity(-velocity*(1-2*turn_ratio))
         else:
-            self.motor1.set_target_velocity(velocity*(1-2*abs(turn_ratio)))
-            self.motor2.set_target_velocity(-velocity)
+            self.__motor1.set_target_velocity(velocity*(1-2*abs(turn_ratio)))
+            self.__motor2.set_target_velocity(-velocity)
 
     def update(self):
         """Run motor updates so the motors can continue to accelerate."""
-        self.motor1.update()
-        self.motor2.update()
+        self.__motor1.update()
+        self.__motor2.update()
     
 
 
