@@ -1,10 +1,8 @@
 import Jetson.GPIO as GPIO
-import time
+from time import time
 class motor:
-    def __init__(self, direction_pin, speed_pin, wheel_diameter=0):
+    def __init__(self, direction_pin : int, speed_pin : int, max_accel : float = 0.01):
         # define some default parameters
-        self.velocity = 0
-        self.wheel_diameter = wheel_diameter
         self.is_inverted = False
         # define all pins
         self.direction_pin = direction_pin
@@ -21,12 +19,23 @@ class motor:
         self.speed = GPIO.PWM(self.speed_pin, 100)
         self.speed.start(50)
         self.speed.ChangeDutyCycle(abs(self.velocity)*100)
+        # all of the variables below are responsible for a gentle acceleration curve
+        self.old_time = time()
+        self.current_time = time()
+        self.accel = max_accel
+        self.target_velocity = 0
+        self.current_velocity = 0
 
-
-    def set_velocity(self, velocity):
-        self.velocity = velocity
+    def update_velocity(self, velocity : float):
+        """Set the current velocity of the motor.
+        
+        This function is used to set the current velocity of the motor. 
+        DO NOT CALL THIS FUCNTION DIRECTLY UNLESS YOU DON'T CARE ABOUT ACCELERATION!
+        use set_target_velocity instead, and remember to coninually call update() to ensure the motor continues to accelerate.
+        """
+        self.current_velocity = velocity
         # set direction based on if velocity is positive or negative
-        if(velocity < 0):
+        if(self.current_velocity < 0):
             # the False or self.is_inverted is a fast and fancy way of inverting the direction pin if is_inverted is true
             # Ask an EE major about it
             GPIO.output(self.direction_pin, (False or self.is_inverted))
@@ -35,58 +44,65 @@ class motor:
             # Ask an EE major about it
             GPIO.output(self.direction_pin, (True and not self.is_inverted))
         # set speed based on velocity
-        self.speed.ChangeDutyCycle(abs(self.velocity)*100)
-
+        self.speed.ChangeDutyCycle(abs(self.current_velocity)*100)
     
-    def set_wheel_diameter(self, diameter):
-        self.wheel_diameter = diameter
-    def get_circumference(self):
-        return self.wheel_diameter * 3.14159265359
+    def set_target_velocity(self, velocity : float):
+        """Set the target velocity of the motor.
+        
+        The motor will smoothly accelerate to the target velocity.
+        """
+        self.target_velocity = velocity
+    
     def invert_dir_pin(self, is_inverted):
         self.is_inverted = is_inverted
+    
+    def update(self):
+        """Incriment the velocity of the motor based on the target velocity and the current velocity.
+
+        This function needs to be called as often as possible to ensure the motor continues accelerating properly.
+        """
+        self.current_time = time()
+        # calculate the time difference between the current and old time
+        delta_time = self.current_time - self.old_time
+        # calculate the new current velocity based on the acceleration value
+        vel_inc = round(self.accel * delta_time, 2)
+        vel_inc = vel_inc * (self.target_velocity - self.current_velocity) / abs(self.target_velocity - self.current_velocity)
+
+        # check to see if the new velocity is going to be within 5% of the target velocity
+        if self.current_velocity + vel_inc < self.target_velocity*1.05 and self.current_velocity + vel_inc > self.target_velocity*0.95:
+            self.update_velocity(self.target_velocity)
+        else: # if the new velocity is not within 5% of the target velocity, then accelerate
+            self.update_velocity(self.current_velocity + vel_inc)
+
+        # set the old time to the current time
+        self.old_time = self.current_time
+
 
 class drive_train:
     # takes two motor objects and an optional IMU object to help with turning
-    def __init__(self, motor1, motor2, imu = None, initial_angle = 0):
+    def __init__(self, motor1 : motor, motor2 : motor):
         self.motor1 = motor1
         self.motor2 = motor2
-        self.imu = imu
         self.velocity = 0
         self.turn_ratio = 0
-        # use the imu angle to set the initial angle, otherwise use an intial angle that can be manually set
-        if imu != None:
-            # as of 3/30/22 the IMU class does not exist and this is a theoretical function
-            self.angle = imu.get_angle()
-        else:
-            self.angle = initial_angle
     
     # turn ratio is a number between 0 and 1 which controls how much the drive base will
     # turn relative to the velocity of the drive base
-    def set_turn_velocity(self, velocity, turn_ratio=0):
+    def set_turn_velocity(self, velocity : float, turn_ratio : float = 0):
         self.velocity = velocity
         self.turn_ratio = turn_ratio
         # set the motor velocities based on the turn ratio and velocity
         if turn_ratio >= 0:
-            self.motor1.set_velocity(velocity)
-            self.motor2.set_velocity(-velocity*(1-2*turn_ratio))
+            self.motor1.set_target_velocity(velocity)
+            self.motor2.set_target_velocity(-velocity*(1-2*turn_ratio))
         else:
-            self.motor1.set_velocity(velocity*(1-2*abs(turn_ratio)))
-            self.motor2.set_velocity(-velocity)
-    
-    def turn_to_angle(self, angle):
-        if self.imu == None:
-            print("No IMU detected, cannot turn to a set angle without an imu initialized\nPlease add an IMU to the class initializer")
-            return 1/0 # <-- this is probably a bad idea to get the programmer's attention
-        # get the current angle
-        current_angle = self.imu.get_angle()
-        while current_angle > angle+8 or current_angle < angle-8:
-            # set the turn velocity based on the difference between the current angle and the angle we want to turn to
-            self.set_turn_velocity(self.velocity, (angle-current_angle)/(180*self.turn_ratio))
-            # update the current angle
-            current_angle = self.imu.get_angle()
-        # set the turn velocity to 0 to stop the motors
-        self.set_turn_velocity(0)
-        return self.imu.get_angle()
+            self.motor1.set_target_velocity(velocity*(1-2*abs(turn_ratio)))
+            self.motor2.set_target_velocity(-velocity)
+
+    def update(self):
+        """Run motor updates so the motors can continue to accelerate."""
+        self.motor1.update()
+        self.motor2.update()
     
 
 
