@@ -113,6 +113,9 @@ class drive_train:
         """Run motor updates so the motors can continue to accelerate."""
         self.__motor1.update()
         self.__motor2.update()
+
+    def cleanup(self):
+        GPIO.cleanup()
     
 
 

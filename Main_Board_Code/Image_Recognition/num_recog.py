@@ -5,7 +5,8 @@ from collections import deque
 # A good tutorial on pytesseract here:
 # https://nanonets.com/blog/ocr-with-tesseract/#ocr-with-pytesseract-and-opencv
 import pytesseract as tes
-#tes.pytesseract.tesseract_cmd = 'C:\Program Files\Tesseract-OCR\\tesseract.exe'
+#tes.pytesseract.tesseract_cmd = 'C:\Program Files\Tesseract-OCR\\tesseract.exe'#
+tes.pytesseract.tesseract_cmd = '/home/robotics/tesseract-4.1.1/src/api/tesseract'
 
 class Camera:
     """A class to handle the camera and do image recognition."""
@@ -17,11 +18,10 @@ class Camera:
         # exit the program if video capture isn't working
         if not self.cap.isOpened():
             print("Cannot open camera")
-            return False
         # keep track of the average center of mass of the yellow shapes
         self.avg_pos = deque([])
         # Mention the installed location of Tesseract-OCR in your system
-        tes.pytesseract.tesseract_cmd = tesseract_path
+        #tes.pytesseract.tesseract_cmd = tesseract_path
     
     def get_frame(self) -> np.ndarray:
         """Get the current frame from the camera."""
@@ -40,11 +40,11 @@ class Camera:
         If no frame is specified, the function will use the last frame from get_frame().
         """
         # upper and lower values for the yellow hue
-        #lower_yellow = np.array([20, 115, 115])
-        #upper_yellow = np.array([30, 255, 255])
+        lower_yellow = np.array([20, 115, 115])
+        upper_yellow = np.array([30, 255, 255])
         # matlab colors
-        lower_yellow = np.array([33, 100, 90])
-        upper_yellow = np.array([46, 255, 255])
+        #lower_yellow = np.array([33, 100, 90])
+        #upper_yellow = np.array([46, 255, 255])
         # convert the frame from rgb to hsv values
         hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
         # find all of the yellow in the image

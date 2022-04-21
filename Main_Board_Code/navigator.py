@@ -1,6 +1,6 @@
 """This is the main code for the robot. It contains the main loop and navigation logic."""
-from Main_Board_Code.Motor_Control.motor import drive_train
-from Serial.robot_serial import robot_serial as Serial
+from Motor_Control.motor import drive_train
+#from Serial.robot_serial import robot_serial as Serial
 from Image_Recognition.num_recog import Camera as Cam
 import Motor_Control.motor as MC
 import cv2 as cv
@@ -9,10 +9,12 @@ from time import sleep
 
 # create a camera object
 # quinn's desktop and laptop path:
-tes_path = 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'
+#tes_path = 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'
+#jetson's path
+tes_path = r'/home/robotics/tesseract-4.1.1/src/api/tesseract'
 vid = Cam(tes_path)
 # initialize serial
-ser = Serial('COM4')
+#ser = Serial('COM4')
 # initialize the motor objects 
 motor1 = MC.motor(16, 32, max_accel=0.075) 
 motor2 = MC.motor(18, 33, max_accel=0.075) 
@@ -177,6 +179,7 @@ while True:
         cv.imshow('frame', display_image)
         # press q to stop the program (nothing else will work)
         if cv.waitKey(1) == ord('q'):
+            dr_train.cleanup()
             break
 
     if has_temporarily_lost_target:
@@ -198,11 +201,11 @@ while True:
                 turn_direction = target.velx/abs(target.velx)
             else:
                 turn_direction = 1
-            ser.setMotor(0.2*turn_direction, -0.2*turn_direction) if is_using_motor_serial else dr_train.set_turn_velocity(0.2, turn_ratio=turn_direction)
+            dr_train.set_turn_velocity(0.2, turn_ratio=turn_direction)
         else:
             # stop moving and go to looking for checkpoint state
             print("Target relocated, resuming movement...")
-            ser.setMotor(0, 0) if is_using_motor_serial else dr_train.set_turn_velocity(0)
+            dr_train.set_turn_velocity(0)
             has_temporarily_lost_target = False
             is_looking_for_checkpoint = True
             has_started_timer = False
@@ -212,12 +215,12 @@ while True:
         if target.current_area > min_area_thresh:
             is_looking_for_checkpoint = False
             is_moving_towards_target = True
-            ser.setMotor(0, 0) if is_using_motor_serial else dr_train.set_turn_velocity(0)
+            dr_train.set_turn_velocity(0)
 
             print("Potential Target Found, Moving towards target.")
         else:
             # begin turning the robot until a target is found
-            ser.setMotor(0.3, -0.3) if is_using_motor_serial else dr_train.set_turn_velocity(0.3, turn_ratio=1)
+            dr_train.set_turn_velocity(velocity, turn_ratio=1)
 
     # this makes the robot move towards the largest blob of yellow
     if is_moving_towards_target:
@@ -225,7 +228,7 @@ while True:
             print("Target is lost, attempting to find it again.")
             has_temporarily_lost_target = True
             is_moving_towards_target = False
-            ser.setMotor(0,0) if is_using_motor_serial else dr_train.set_turn_velocity(0)
+            dr_train.set_turn_velocity(0)
 
         if turn_controller >= 0:
             motor1 = velocity
@@ -233,12 +236,12 @@ while True:
         else:
             motor1 = velocity*(1-2*turn_controller)
             motor2 = velocity
-        ser.setMotor(motor1,motor2) if is_using_motor_serial else dr_train.set_turn_velocity(velocity, turn_ratio=turn_controller)
+        dr_train.set_turn_velocity(velocity, turn_ratio=turn_controller)
         last_time = current_time
         #print("Moving towards target to confirm identity.", coords[2]*coords[3], turn_controller)
         # run image recognition if the target area is big enough
         if target.current_area > read_area_thresh:
-            ser.setMotor(0,0) if is_using_motor_serial else dr_train.set_turn_velocity(0)
+            dr_train.set_turn_velocity(0)
             is_moving_towards_target = False
             is_confirming_target = True
             target.clear_past_guesses()
@@ -264,7 +267,7 @@ while True:
                 is_confirming_target = False
                 is_looking_for_checkpoint = True
                 # turn the robot away from this checkpoint so it doesn't refind it while searching
-                ser.setMotor(0.3, -0.3) if is_using_motor_serial else dr_train.set_turn_velocity(0.3, turn_ratio=1)
+                dr_train.set_turn_velocity(velocity, turn_ratio=1)
                 sleep(2)
 
     if has_reached_checkpoint:
@@ -284,4 +287,4 @@ while True:
 
 # clean up everything on exit
 vid.close_video()
-ser.close()
+dr_train.cleanup()
