@@ -28,7 +28,7 @@ while time.time() - timer <= 3:
 
 timer = time.time()
 print("Begginning to turn")
-for i in range(0,100,5):
+for i in range(0,101,2):
     drive_train.set_turn_velocity(0.5, turn_ratio=i/100)
     drive_train.update()
     print(i/100)
