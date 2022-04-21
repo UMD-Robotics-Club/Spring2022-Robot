@@ -14,8 +14,10 @@ vid = Cam(tes_path)
 # initialize serial
 ser = Serial('COM4')
 # initialize the motor objects 
-motor1 = MC.motor(31, 32) #TODO: Make sure these pins are correct
-motor2 = MC.motor(35, 33) #TODO: Make sure these pins are correct
+motor1 = MC.motor(16, 32, max_accel=0.075) 
+motor2 = MC.motor(18, 33, max_accel=0.075) 
+motor1.invert_dir_pin(True)
+motor2.invert_dir_pin(True)
 # create a drivetrain controller object
 dr_train = MC.drive_train(motor1, motor2)
 
@@ -131,7 +133,7 @@ prop_error = 0
 vel_error = 0
 kp, kd = 1, 0.1
 # the speed of the robot is currently just kept constant, but should be proportional to the area of the yellow blob
-velocity = 0.37 # this is generally the max speed the robot will travel at
+velocity = 0.7 # this is generally the max speed the robot will travel at
 turn_controller = 0 # this is the controller for the robot's turning, it is set to 0 initially
 
 checkpoint_data = [] # this holds all of the data that the robot has gathered from measurements
