@@ -5,7 +5,6 @@ from Image_Recognition.num_recog import Camera as Cam
 import Motor_Control.motor as MC
 import cv2 as cv
 from time import time
-from time import sleep
 
 # create a camera object
 # quinn's desktop and laptop path:
@@ -16,13 +15,20 @@ vid = Cam(tes_path)
 # initialize serial
 #ser = Serial('COM4')
 # initialize the motor objects 
-motor1 = MC.motor(16, 32, max_accel=0.075) 
-motor2 = MC.motor(18, 33, max_accel=0.075) 
+motor1 = MC.motor(16, 32, max_accel=0.15) 
+motor2 = MC.motor(18, 33, max_accel=0.15) 
 motor1.invert_dir_pin(True)
 motor2.invert_dir_pin(True)
 # create a drivetrain controller object
 dr_train = MC.drive_train(motor1, motor2)
 
+
+def sleep(sleep_time : float):
+    """Sleep for a given amount of time in seconds."""
+    start_time = time()
+    while time() - start_time < sleep_time:
+        pass
+    return
 
 class Target:
     """This class contains information about the currently tracked target and functions to keep track of the target."""
@@ -93,6 +99,7 @@ class Target:
                 if percent_occurencs[i] > highest_percent:
                     highest_percent = percent_occurencs[i]
                     highest_num = i
+            print(highest_percent, ",", i, ",", ocr_text)
             # return the highest probability guess as long as it's at least 75% confident
             if highest_percent > 0.75 and highest_num != 0:
                 return highest_num+1
@@ -106,15 +113,15 @@ class Target:
 
 # get the x and y center of the video frame from the camera
 frame_center = vid.get_frame().shape
-frame_center = (frame_center[0] / 2, frame_center[1] / 2)
+frame_center = (frame_center[1] / 2, frame_center[0] / 2)
 
 # these are some quick config options which can control extra functionality of the code
 is_using_motor_serial = False # if you want to use the arduino for motor control enable this
 show_im = True # if you want the camera's current view to be displayed on screen, enable this
 
 # These variables automatically scale with the resolution of the camera
-min_area_thresh = int((vid.get_frame().shape[0]*vid.get_frame().shape[1])*500/(1920*1080)) # the minimum area of a target to be considered a target
-read_area_thresh = int((vid.get_frame().shape[0]*vid.get_frame().shape[1])*15000/(1920*1080)) # the minimum area of a target to try and read the number from the image
+min_area_thresh = int((vid.get_frame().shape[0]*vid.get_frame().shape[1])*2000/(1920*1080)) # the minimum area of a target to be considered a target
+read_area_thresh = int((vid.get_frame().shape[0]*vid.get_frame().shape[1])*60000/(1920*1080)) # the minimum area of a target to try and read the number from the image
 
 
 # these variables keep track of what state the robot is in
@@ -135,7 +142,7 @@ prop_error = 0
 vel_error = 0
 kp, kd = 1, 0.1
 # the speed of the robot is currently just kept constant, but should be proportional to the area of the yellow blob
-velocity = 0.7 # this is generally the max speed the robot will travel at
+velocity = 0.35 # this is generally the max speed the robot will travel at
 turn_controller = 0 # this is the controller for the robot's turning, it is set to 0 initially
 
 checkpoint_data = [] # this holds all of the data that the robot has gathered from measurements
@@ -144,14 +151,15 @@ while True:
     dr_train.update()
     unprocessed_frame = vid.get_frame()
     yellow_frame = vid.find_yellow(unprocessed_frame)
-    _, coords = vid.crop_image(yellow_frame.copy())
+    __, coords = vid.crop_image(yellow_frame.copy())
     target.current_area = coords[2] * coords[3]
     # update the PD controller with new measurements
     current_time = time()
+    cent_x = coords[0] + coords[2] / 2
+    cent_y = coords[1] + coords[3] / 2
     # only update PID if the target is big enough
     if target.current_area > min_area_thresh:
-        cent_x = coords[0] + coords[2] / 2
-        cent_y = coords[1] + coords[3] / 2
+        
         # start moving towards the target to confirm its identity and keep the target centered
         # calculate proportional error
         prop_error = frame_center[0] - cent_x
@@ -161,7 +169,7 @@ while True:
         # this controller is designed to keep the target centered and controls how much the robot turns
         turn_controller = kp * prop_error + kd * vel_error
         # normalize the controller value to be between -1 and 1
-        turn_controller /= (2*frame_center[0]*kp*kd) #TODO: Consider removing the kp*kd term
+        turn_controller /= 10*(2*frame_center[0]*kp*kd) #TODO: Consider removing the kp*kd term
         if turn_controller > 1:
             turn_controller = 1
         elif turn_controller < -1:
@@ -172,15 +180,14 @@ while True:
     # this block can be toggled on and off if you want a visual of what the camera is seeing
     if show_im:
         display_image = yellow_frame
-        display_image = cv.circle(display_image, ((int)(coords[0]+coords[2]/2), (int)(
-            coords[1]+coords[3]/2)), radius=5, color=(0, 0, 255), thickness=3)
+        display_image = cv.circle(display_image, ((int)(cent_x), (int)(cent_y)), radius=5, color=(0, 0, 255), thickness=3)
         cv.rectangle(display_image, (coords[0], coords[1]), (
             coords[0] + coords[2], coords[1] + coords[3]), (0, 255, 0), 2)
         cv.imshow('frame', display_image)
         # press q to stop the program (nothing else will work)
         if cv.waitKey(1) == ord('q'):
             dr_train.cleanup()
-            break
+            break   
 
     if has_temporarily_lost_target:
         # start a timer
@@ -230,12 +237,6 @@ while True:
             is_moving_towards_target = False
             dr_train.set_turn_velocity(0)
 
-        if turn_controller >= 0:
-            motor1 = velocity
-            motor2 = velocity*(1-2*turn_controller)
-        else:
-            motor1 = velocity*(1-2*turn_controller)
-            motor2 = velocity
         dr_train.set_turn_velocity(velocity, turn_ratio=turn_controller)
         last_time = current_time
         #print("Moving towards target to confirm identity.", coords[2]*coords[3], turn_controller)
@@ -252,8 +253,12 @@ while True:
             print("Target is lost, attempting to find it again.")
             has_temporarily_lost_target = True
             is_confirming_target = False
-        text, _ = vid.get_im_text()
-        target_num = target.infer_target(text)
+        text, im = vid.get_im_text()
+        cv.imshow("Filtered", im)
+        try:
+            target_num = int(text[0])#target.infer_target(text)
+        except:
+            print("Failed to convert", text, "to a number.")
         if target_num != 0:
             print("Found target with number:", target_num)
             # check to see if it has already visited this target
@@ -267,8 +272,8 @@ while True:
                 is_confirming_target = False
                 is_looking_for_checkpoint = True
                 # turn the robot away from this checkpoint so it doesn't refind it while searching
-                dr_train.set_turn_velocity(velocity, turn_ratio=1)
-                sleep(2)
+                dr_train.set_turn_velocity(0.1, turn_ratio=1)
+                #sleep(1)
 
     if has_reached_checkpoint:
         print("Getting moisture measurements...")

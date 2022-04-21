@@ -40,7 +40,7 @@ class Camera:
         If no frame is specified, the function will use the last frame from get_frame().
         """
         # upper and lower values for the yellow hue
-        lower_yellow = np.array([20, 115, 115])
+        lower_yellow = np.array([20, 80, 80])
         upper_yellow = np.array([30, 255, 255])
         # matlab colors
         #lower_yellow = np.array([33, 100, 90])
@@ -93,11 +93,11 @@ class Camera:
         #custom_config = r'--oem 3 --psm 6 outputbase digits'
         custom_config = r'-c tessedit_char_whitelist=12345 --psm 10'
         denoised_image = self.denoise_im(self.yellow_mask)
-        cropped_image, _ = self.crop_image(denoised_image)
+        cropped_image, __ = self.crop_image(denoised_image)
         # Apply OCR on the processed image to find text
-        message = tes.image_to_string(denoised_image, config=custom_config)
+        message = tes.image_to_string(cropped_image, config=custom_config)
 
-        return message, denoised_image
+        return message, cropped_image
 
     def close_video(self):
         """Close the video stream."""
