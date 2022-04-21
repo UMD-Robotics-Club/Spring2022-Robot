@@ -21,8 +21,8 @@ class motor:
 
         # set up PWM for speed control
         self.speed = GPIO.PWM(self.__speed_pin, 100)
-        self.speed.start(50)
-        self.speed.ChangeDutyCycle(abs(self.velocity)*100)
+        self.speed.start(5)
+        self.speed.ChangeDutyCycle(0)
         # all of the variables below are responsible for a gentle acceleration curve
         self.old_time = time()
         self.current_time = time()
@@ -70,8 +70,9 @@ class motor:
         # calculate the time difference between the current and old time
         delta_time = self.current_time - self.old_time
         # calculate the new current velocity based on the acceleration value
-        vel_inc = round(self.accel * delta_time, 2)
-        vel_inc = vel_inc * (self.target_velocity - self.__current_velocity) / abs(self.target_velocity - self.__current_velocity)
+        vel_inc = self.accel * delta_time
+        if self.target_velocity - self.__current_velocity < 0:
+            vel_inc *= -1
 
         # check to see if the new velocity is going to be within 5% of the target velocity
         if self.__current_velocity + vel_inc < self.target_velocity*1.05 and self.__current_velocity + vel_inc > self.target_velocity*0.95:
