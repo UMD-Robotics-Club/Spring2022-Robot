@@ -224,7 +224,7 @@ while True:
         if target.current_area > min_area_thresh:
             is_looking_for_checkpoint = False
             is_moving_towards_target = True
-            dr_train.set_turn_velocity(0)
+            dr_train.set_turn_velocity(0, turn_ratio=0)
 
             print("Potential Target Found, Moving towards target.")
         else:
