@@ -23,8 +23,8 @@ vid = Cam(tes_path)
 #ser = Serial('COM4')
 # initialize the motor objects 
 if not laptop_mode:
-    motor1 = MC.motor(16, 32, max_accel=0.15) 
-    motor2 = MC.motor(18, 33, max_accel=0.15) 
+    motor1 = MC.motor(16, 32, max_accel=0.3) 
+    motor2 = MC.motor(18, 33, max_accel=0.3) 
     motor1.invert_dir_pin(True)
     motor2.invert_dir_pin(True)
     # create a drivetrain controller object
@@ -111,7 +111,7 @@ class Target:
         if num_guesses > 100:
             return -1
         # return the highest probability guess if there are at least 5 guesses and the probability is above 75%
-        elif highest_prob/num_guesses > 0.75 and num_guesses > 5:
+        elif highest_prob/num_guesses > 0.75 and num_guesses >= 10:
             self.clear_past_guesses()
             return highest_prob_num
         else:
@@ -211,6 +211,7 @@ while True:
             is_looking_for_checkpoint = True
             has_started_timer = False
             target.current_area = 0
+            dr_train.set_turn_velocity(0)
 
         # use the last known target velocity and turn in that direction
         if target.current_area < min_area_thresh:
@@ -235,7 +236,7 @@ while True:
             is_looking_for_checkpoint = False
             is_moving_towards_target = True
             if not laptop_mode:
-                dr_train.set_turn_velocity(0, turn_ratio=0)
+                dr_train.set_turn_velocity(0)
 
             print("Potential Target Found, Moving towards target.")
         else:
@@ -250,7 +251,7 @@ while True:
             has_temporarily_lost_target = True
             is_moving_towards_target = False
             if not laptop_mode:
-                dr_train.set_turn_velocity(0, turn_ratio=0)
+                dr_train.set_turn_velocity(0)
         if not laptop_mode:
             dr_train.set_turn_velocity(velocity, turn_ratio=turn_controller)
         last_time = current_time
@@ -265,6 +266,8 @@ while True:
             print("Confirming identity of target...")
 
     if is_confirming_target:
+        if not laptop_mode:
+                    dr_train.set_turn_velocity(0)
         if coords[2]*coords[3] < 90:
             print("Target is lost, attempting to find it again.")
             has_temporarily_lost_target = True
@@ -295,13 +298,6 @@ while True:
 
     if has_reached_checkpoint:
         print("Getting moisture measurements...")
-        #sonar_data = ser.getSonar()
-        '''shortest_dist = 10000
-        for measurement in sonar_data:
-            if measurement[1] < shortest_dist:
-                shortest_dist = measurement[1]
-        checkpoint_data.append((ser.getMoisture(timeout=20), shortest_dist))'''
-        print("Moisture measurements taken:", checkpoint_data)
         has_reached_checkpoint = False
         is_looking_for_checkpoint = True
         target.current_area = 0
