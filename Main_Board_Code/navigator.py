@@ -46,7 +46,13 @@ class Target:
         self.vely = 0
         self.velArea = 0
         self.timer = time()
-        self.guesses = []
+        self.guesses = {
+            "1": 0,
+            "2": 0,
+            "3": 0,
+            "4": 0,
+            "5": 0
+        }
         # keeps track of the checkpoints that have been reached and measured already
         self.reached_targets = [False, False, False, False, False]
         return
@@ -68,43 +74,39 @@ class Target:
         self.timer = new_time
         return
 
-    # can collect a sample of tesseract guesses and will take the guess that's the highest probability
-    def infer_target(self, ocr_text : str) -> str:
+    def infer_target(self, ocr_text : str) -> int:
         """Do statistical analysis on a list of guesses to choose the guess with the highest probability of being correct.
 
         Give a string of the current target's identity and it will add it to the list of guesses.
         Once you give it at least 5 guesses it will try and return the guess with over 75% probability of being correct.
         If no guess is above 75% probability or if there are not at least 5 guesses it will return 0.
         """
-        # convert the string to a number
-        try:
-            number = int(ocr_text)
-        except ValueError:
-            return 0
-        # make sure the number is valid or else exit
-        if number > 5:
-            return 0
-        # append the number to the list of guesses that tesseract spit out
-        self.guesses.append(number)
-        # check to see if the list is long enough to find the highest probability
-        if len(self.guesses) >= 5:
-            # initialize a percentile array which keeps track of the percentiles of each guess
-            percent_occurencs = [0, 0, 0, 0, 0]
-            # go through each of the guesses and tally of the percents
-            for num in self.guesses:
-                percent_occurencs[num-1] += 1/len(self.guesses)
-            # find the highest probability guess
-            highest_percent, highest_num = 0, 0
-            for i in range(len(percent_occurencs)-1):
-                if percent_occurencs[i] > highest_percent:
-                    highest_percent = percent_occurencs[i]
-                    highest_num = i
-            print(highest_percent, ",", i, ",", ocr_text)
-            # return the highest probability guess as long as it's at least 75% confident
-            if highest_percent > 0.75 and highest_num != 0:
-                return highest_num+1
+        # check to make sure the input is a valid guess
+        if ocr_text not in self.guesses: return 0
+        # add the guess to the list
+        self.guesses[ocr_text] += 1
+        # keeps track of the total number of guesses
+        num_guesses = 0
+        # keeps track of what is the current guess with the highest probability
+        highest_prob = 0
+        # keeps track of what is the current guess with the highest probability is
+        highest_prob_num = 0
+        # loop through the dictionary of guesses and find the one with highest probability
+        for key in self.guesses:
+            num_guesses += self.guesses[key]
+            if self.guesses[key] > highest_prob:
+                highest_prob = self.guesses[key]
+                highest_prob_num = key
 
-        return 0
+        # detect that there is an error if there have been 100 guesses and no right answer yet
+        if num_guesses > 100:
+            return -1
+        # return the highest probability guess if there are at least 5 guesses and the probability is above 75%
+        elif highest_prob/num_guesses > 0.75 and num_guesses > 5:
+            self.clear_past_guesses()
+            return highest_prob_num
+        else:
+            return 0
 
     def clear_past_guesses(self):
         """Clear the past guesses so that the next time you call infer_target it will start with a new list of guesses."""
@@ -254,11 +256,13 @@ while True:
             has_temporarily_lost_target = True
             is_confirming_target = False
         text, im = vid.get_im_text()
-        try:
-            target_num = int(text[0])#target.infer_target(text)
-        except:
-            print("Failed to convert", text, "to a number.")
-        if target_num != 0:
+        target_num = target.infer_target(text)
+        
+        if target_num == -1:
+            print("Couldn't confirm target identity, moving on.")
+            is_confirming_target = False
+            is_looking_for_checkpoint = True
+        elif target_num != 0:
             print("Found target with number:", target_num)
             # check to see if it has already visited this target
             if not target.reached_targets[target_num-1]:
