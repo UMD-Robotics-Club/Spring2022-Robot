@@ -3,7 +3,7 @@
 # these are some quick config options which can control extra functionality of the code
 is_using_motor_serial = False # if you want to use the arduino for motor control enable this
 show_im = True # if you want the camera's current view to be displayed on screen, enable this
-laptop_mode = False # Enabling this disables all GPIO calls so you can run the code on a laptop
+laptop_mode = True # Enabling this disables all GPIO calls so you can run the code on a laptop
 
 if not laptop_mode:
     from Motor_Control.motor import drive_train
@@ -15,9 +15,9 @@ from time import time
 
 # create a camera object
 # quinn's desktop and laptop path:
-#tes_path = 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'
+tes_path = 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'
 #jetson's path
-tes_path = r'/home/robotics/tesseract-4.1.1/src/api/tesseract'
+#tes_path = None#r'/home/robotics/tesseract-4.1.1/src/api/tesseract'
 vid = Cam(tes_path)
 # initialize serial
 #ser = Serial('COM4')
@@ -55,11 +55,11 @@ class Target:
         self.velArea = 0
         self.timer = time()
         self.guesses = {
-            "1": 0,
-            "2": 0,
-            "3": 0,
-            "4": 0,
-            "5": 0
+            '1': 0,
+            '2': 0,
+            '3': 0,
+            '4': 0,
+            '5': 0
         }
         # keeps track of the checkpoints that have been reached and measured already
         self.reached_targets = [False, False, False, False, False]
@@ -89,8 +89,10 @@ class Target:
         Once you give it at least 5 guesses it will try and return the guess with over 75% probability of being correct.
         If no guess is above 75% probability or if there are not at least 5 guesses it will return 0.
         """
+        ocr_text = ocr_text.strip()
         # check to make sure the input is a valid guess
-        if ocr_text not in self.guesses: return 0
+        if ocr_text not in self.guesses: 
+            return 0
         # add the guess to the list
         self.guesses[ocr_text] += 1
         # keeps track of the total number of guesses
@@ -104,8 +106,7 @@ class Target:
             num_guesses += self.guesses[key]
             if self.guesses[key] > highest_prob:
                 highest_prob = self.guesses[key]
-                highest_prob_num = key
-
+                highest_prob_num = int(key)
         # detect that there is an error if there have been 100 guesses and no right answer yet
         if num_guesses > 100:
             return -1
@@ -118,7 +119,8 @@ class Target:
 
     def clear_past_guesses(self):
         """Clear the past guesses so that the next time you call infer_target it will start with a new list of guesses."""
-        self.guesses = []
+        for key in self.guesses:
+            self.guesses[key] = 0
         return
 
 # get the x and y center of the video frame from the camera

@@ -21,7 +21,8 @@ class Camera:
         # keep track of the average center of mass of the yellow shapes
         self.avg_pos = deque([])
         # Mention the installed location of Tesseract-OCR in your system
-        #tes.pytesseract.tesseract_cmd = tesseract_path
+        if tesseract_path != None:
+            tes.pytesseract.tesseract_cmd = tesseract_path
     
     def get_frame(self) -> np.ndarray:
         """Get the current frame from the camera."""
