@@ -1,8 +1,15 @@
 """This is the main code for the robot. It contains the main loop and navigation logic."""
-from Motor_Control.motor import drive_train
+
+# these are some quick config options which can control extra functionality of the code
+is_using_motor_serial = False # if you want to use the arduino for motor control enable this
+show_im = True # if you want the camera's current view to be displayed on screen, enable this
+laptop_mode = False # Enabling this disables all GPIO calls so you can run the code on a laptop
+
+if not laptop_mode:
+    from Motor_Control.motor import drive_train
+    import Motor_Control.motor as MC
 #from Serial.robot_serial import robot_serial as Serial
 from Image_Recognition.num_recog import Camera as Cam
-import Motor_Control.motor as MC
 import cv2 as cv
 from time import time
 
@@ -15,12 +22,13 @@ vid = Cam(tes_path)
 # initialize serial
 #ser = Serial('COM4')
 # initialize the motor objects 
-motor1 = MC.motor(16, 32, max_accel=0.15) 
-motor2 = MC.motor(18, 33, max_accel=0.15) 
-motor1.invert_dir_pin(True)
-motor2.invert_dir_pin(True)
-# create a drivetrain controller object
-dr_train = MC.drive_train(motor1, motor2)
+if not laptop_mode:
+    motor1 = MC.motor(16, 32, max_accel=0.15) 
+    motor2 = MC.motor(18, 33, max_accel=0.15) 
+    motor1.invert_dir_pin(True)
+    motor2.invert_dir_pin(True)
+    # create a drivetrain controller object
+    dr_train = MC.drive_train(motor1, motor2)
 
 
 def sleep(sleep_time : float):
@@ -117,10 +125,6 @@ class Target:
 frame_center = vid.get_frame().shape
 frame_center = (frame_center[1] / 2, frame_center[0] / 2)
 
-# these are some quick config options which can control extra functionality of the code
-is_using_motor_serial = False # if you want to use the arduino for motor control enable this
-show_im = True # if you want the camera's current view to be displayed on screen, enable this
-
 # These variables automatically scale with the resolution of the camera
 min_area_thresh = int((vid.get_frame().shape[0]*vid.get_frame().shape[1])*2000/(1920*1080)) # the minimum area of a target to be considered a target
 read_area_thresh = int((vid.get_frame().shape[0]*vid.get_frame().shape[1])*60000/(1920*1080)) # the minimum area of a target to try and read the number from the image
@@ -150,7 +154,8 @@ turn_controller = 0 # this is the controller for the robot's turning, it is set 
 checkpoint_data = [] # this holds all of the data that the robot has gathered from measurements
 print("Beggining search for checkpoint")
 while True:
-    dr_train.update()
+    if not laptop_mode:
+        dr_train.update()
     unprocessed_frame = vid.get_frame()
     yellow_frame = vid.find_yellow(unprocessed_frame)
     __, coords = vid.crop_image(yellow_frame.copy())
@@ -188,7 +193,8 @@ while True:
         cv.imshow('frame', display_image)
         # press q to stop the program (nothing else will work)
         if cv.waitKey(1) == ord('q'):
-            dr_train.cleanup()
+            if not laptop_mode:
+                dr_train.cleanup()
             break   
 
     if has_temporarily_lost_target:
@@ -210,11 +216,13 @@ while True:
                 turn_direction = -target.velx/abs(target.velx)
             else:
                 turn_direction = 1
-            dr_train.set_turn_velocity(velocity, turn_ratio=turn_direction)
+            if not laptop_mode:
+                dr_train.set_turn_velocity(velocity, turn_ratio=turn_direction)
         else:
             # stop moving and go to looking for checkpoint state
             print("Target relocated, resuming movement...")
-            dr_train.set_turn_velocity(0)
+            if not laptop_mode:
+                dr_train.set_turn_velocity(0)
             has_temporarily_lost_target = False
             is_looking_for_checkpoint = True
             has_started_timer = False
@@ -224,12 +232,14 @@ while True:
         if target.current_area > min_area_thresh:
             is_looking_for_checkpoint = False
             is_moving_towards_target = True
-            dr_train.set_turn_velocity(0, turn_ratio=0)
+            if not laptop_mode:
+                dr_train.set_turn_velocity(0, turn_ratio=0)
 
             print("Potential Target Found, Moving towards target.")
         else:
             # begin turning the robot until a target is found
-            dr_train.set_turn_velocity(0.4, turn_ratio=1)
+            if not laptop_mode:
+                dr_train.set_turn_velocity(0.4, turn_ratio=1)
 
     # this makes the robot move towards the largest blob of yellow
     if is_moving_towards_target:
@@ -237,14 +247,16 @@ while True:
             print("Target is lost, attempting to find it again.")
             has_temporarily_lost_target = True
             is_moving_towards_target = False
-            dr_train.set_turn_velocity(0)
-
-        dr_train.set_turn_velocity(velocity, turn_ratio=turn_controller)
+            if not laptop_mode:
+                dr_train.set_turn_velocity(0, turn_ratio=0)
+        if not laptop_mode:
+            dr_train.set_turn_velocity(velocity, turn_ratio=turn_controller)
         last_time = current_time
         #print("Moving towards target to confirm identity.", coords[2]*coords[3], turn_controller)
         # run image recognition if the target area is big enough
         if target.current_area > read_area_thresh:
-            dr_train.set_turn_velocity(0)
+            if not laptop_mode:
+                dr_train.set_turn_velocity(0)
             is_moving_towards_target = False
             is_confirming_target = True
             target.clear_past_guesses()
@@ -275,7 +287,8 @@ while True:
                 is_confirming_target = False
                 is_looking_for_checkpoint = True
                 # turn the robot away from this checkpoint so it doesn't refind it while searching
-                dr_train.set_turn_velocity(0.4, turn_ratio=1)
+                if not laptop_mode:
+                    dr_train.set_turn_velocity(0.4, turn_ratio=1)
                 #sleep(1)
 
     if has_reached_checkpoint:
@@ -295,4 +308,5 @@ while True:
 
 # clean up everything on exit
 vid.close_video()
-dr_train.cleanup()
+if not laptop_mode:
+    dr_train.cleanup()
