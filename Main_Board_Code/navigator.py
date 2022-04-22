@@ -142,7 +142,7 @@ prop_error = 0
 vel_error = 0
 kp, kd = 1, 0.1
 # the speed of the robot is currently just kept constant, but should be proportional to the area of the yellow blob
-velocity = 0.35 # this is generally the max speed the robot will travel at
+velocity = 0.42 # this is generally the max speed the robot will travel at
 turn_controller = 0 # this is the controller for the robot's turning, it is set to 0 initially
 
 checkpoint_data = [] # this holds all of the data that the robot has gathered from measurements
@@ -205,10 +205,10 @@ while True:
         # use the last known target velocity and turn in that direction
         if target.current_area < min_area_thresh:
             if target.velx != 0:
-                turn_direction = target.velx/abs(target.velx)
+                turn_direction = -target.velx/abs(target.velx)
             else:
                 turn_direction = 1
-            dr_train.set_turn_velocity(0.2, turn_ratio=turn_direction)
+            dr_train.set_turn_velocity(velocity, turn_ratio=turn_direction)
         else:
             # stop moving and go to looking for checkpoint state
             print("Target relocated, resuming movement...")
@@ -227,7 +227,7 @@ while True:
             print("Potential Target Found, Moving towards target.")
         else:
             # begin turning the robot until a target is found
-            dr_train.set_turn_velocity(velocity, turn_ratio=1)
+            dr_train.set_turn_velocity(0.4, turn_ratio=1)
 
     # this makes the robot move towards the largest blob of yellow
     if is_moving_towards_target:
@@ -254,7 +254,6 @@ while True:
             has_temporarily_lost_target = True
             is_confirming_target = False
         text, im = vid.get_im_text()
-        cv.imshow("Filtered", im)
         try:
             target_num = int(text[0])#target.infer_target(text)
         except:
@@ -272,7 +271,7 @@ while True:
                 is_confirming_target = False
                 is_looking_for_checkpoint = True
                 # turn the robot away from this checkpoint so it doesn't refind it while searching
-                dr_train.set_turn_velocity(0.1, turn_ratio=1)
+                dr_train.set_turn_velocity(0.4, turn_ratio=1)
                 #sleep(1)
 
     if has_reached_checkpoint:
