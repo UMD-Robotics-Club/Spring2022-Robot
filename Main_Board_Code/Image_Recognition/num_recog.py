@@ -41,7 +41,7 @@ class Camera:
         If no frame is specified, the function will use the last frame from get_frame().
         """
         # upper and lower values for the yellow hue
-        lower_yellow = np.array([20, 80, 80])
+        lower_yellow = np.array([20, 100, 80])
         upper_yellow = np.array([30, 255, 255])
         # matlab colors
         #lower_yellow = np.array([33, 100, 90])

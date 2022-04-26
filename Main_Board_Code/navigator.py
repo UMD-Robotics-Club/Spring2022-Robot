@@ -3,7 +3,7 @@
 # these are some quick config options which can control extra functionality of the code
 is_using_motor_serial = False # if you want to use the arduino for motor control enable this
 show_im = True # if you want the camera's current view to be displayed on screen, enable this
-laptop_mode = True # Enabling this disables all GPIO calls so you can run the code on a laptop
+laptop_mode = False # Enabling this disables all GPIO calls so you can run the code on a laptop
 
 if not laptop_mode:
     from Motor_Control.motor import drive_train
@@ -15,7 +15,8 @@ from time import time
 
 # create a camera object
 # quinn's desktop and laptop path:
-tes_path = 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'
+#tes_path = 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'
+tes_path = None
 #jetson's path
 #tes_path = None#r'/home/robotics/tesseract-4.1.1/src/api/tesseract'
 vid = Cam(tes_path)
@@ -23,8 +24,8 @@ vid = Cam(tes_path)
 #ser = Serial('COM4')
 # initialize the motor objects 
 if not laptop_mode:
-    motor1 = MC.motor(16, 32, max_accel=0.3) 
-    motor2 = MC.motor(18, 33, max_accel=0.3) 
+    motor1 = MC.motor(16, 32, max_accel=0.25) 
+    motor2 = MC.motor(18, 33, max_accel=0.25) 
     motor1.invert_dir_pin(True)
     motor2.invert_dir_pin(True)
     # create a drivetrain controller object
@@ -37,7 +38,7 @@ def sleep(sleep_time : float):
     while time() - start_time < sleep_time:
         pass
     return
-
+sleep(1)
 class Target:
     """This class contains information about the currently tracked target and functions to keep track of the target."""
     
@@ -108,7 +109,7 @@ class Target:
                 highest_prob = self.guesses[key]
                 highest_prob_num = int(key)
         # detect that there is an error if there have been 100 guesses and no right answer yet
-        if num_guesses > 100:
+        if num_guesses > 30:
             return -1
         # return the highest probability guess if there are at least 5 guesses and the probability is above 75%
         elif highest_prob/num_guesses > 0.75 and num_guesses >= 10:
@@ -150,8 +151,11 @@ prop_error = 0
 vel_error = 0
 kp, kd = 1, 0.1
 # the speed of the robot is currently just kept constant, but should be proportional to the area of the yellow blob
-velocity = 0.42 # this is generally the max speed the robot will travel at
+forward_velocity = 0.42 # this is generally the max speed the robot will travel at
+search_velocity = 0.25
 turn_controller = 0 # this is the controller for the robot's turning, it is set to 0 initially
+recognition_pause_timer = time()
+recognition_timeout = 4
 
 checkpoint_data = [] # this holds all of the data that the robot has gathered from measurements
 print("Beggining search for checkpoint")
@@ -220,7 +224,7 @@ while True:
             else:
                 turn_direction = 1
             if not laptop_mode:
-                dr_train.set_turn_velocity(velocity, turn_ratio=turn_direction)
+                dr_train.set_turn_velocity(forward_velocity, turn_ratio=turn_direction)
         else:
             # stop moving and go to looking for checkpoint state
             print("Target relocated, resuming movement...")
@@ -232,7 +236,7 @@ while True:
 
     # this just makes the robot turn in a circle until it sees yellow
     if is_looking_for_checkpoint:
-        if target.current_area > min_area_thresh:
+        if target.current_area > min_area_thresh and time() - recognition_pause_timer > recognition_timeout:
             is_looking_for_checkpoint = False
             is_moving_towards_target = True
             if not laptop_mode:
@@ -242,7 +246,7 @@ while True:
         else:
             # begin turning the robot until a target is found
             if not laptop_mode:
-                dr_train.set_turn_velocity(0.4, turn_ratio=1)
+                dr_train.set_turn_velocity(search_velocity, turn_ratio=1)
 
     # this makes the robot move towards the largest blob of yellow
     if is_moving_towards_target:
@@ -253,21 +257,21 @@ while True:
             if not laptop_mode:
                 dr_train.set_turn_velocity(0)
         if not laptop_mode:
-            dr_train.set_turn_velocity(velocity, turn_ratio=turn_controller)
+            dr_train.set_turn_velocity(forward_velocity, turn_ratio=turn_controller)
         last_time = current_time
         #print("Moving towards target to confirm identity.", coords[2]*coords[3], turn_controller)
         # run image recognition if the target area is big enough
         if target.current_area > read_area_thresh:
-            if not laptop_mode:
+            if not laptop_mode and time() - recognition_pause_timer > recognition_timeout:
                 dr_train.set_turn_velocity(0)
             is_moving_towards_target = False
             is_confirming_target = True
             target.clear_past_guesses()
             print("Confirming identity of target...")
 
-    if is_confirming_target:
+    if is_confirming_target and time() - recognition_pause_timer > 2:
         if not laptop_mode:
-                    dr_train.set_turn_velocity(0)
+            dr_train.set_turn_velocity(0)
         if coords[2]*coords[3] < 90:
             print("Target is lost, attempting to find it again.")
             has_temporarily_lost_target = True
@@ -287,14 +291,17 @@ while True:
                 target.reached_targets[target_num-1] = True
                 is_confirming_target = False
                 has_reached_checkpoint = True
+                if not laptop_mode:
+                    dr_train.set_turn_velocity(search_velocity, turn_ratio=1)
+                    recognition_pause_timer = time()
             else:
                 print("This target has already been visited.")
                 is_confirming_target = False
                 is_looking_for_checkpoint = True
                 # turn the robot away from this checkpoint so it doesn't refind it while searching
                 if not laptop_mode:
-                    dr_train.set_turn_velocity(0.4, turn_ratio=1)
-                #sleep(1)
+                    dr_train.set_turn_velocity(search_velocity, turn_ratio=1)
+                    recognition_pause_timer = time()
 
     if has_reached_checkpoint:
         print("Getting moisture measurements...")
