@@ -129,8 +129,8 @@ frame_center = vid.get_frame().shape
 frame_center = (frame_center[1] / 2, frame_center[0] / 2)
 
 # These variables automatically scale with the resolution of the camera
-min_area_thresh = int((vid.get_frame().shape[0]*vid.get_frame().shape[1])*2000/(1920*1080)) # the minimum area of a target to be considered a target
-read_area_thresh = int((vid.get_frame().shape[0]*vid.get_frame().shape[1])*60000/(1920*1080)) # the minimum area of a target to try and read the number from the image
+min_area_thresh = int((vid.get_frame().shape[0]*vid.get_frame().shape[1])*3000/(1920*1080)) # the minimum area of a target to be considered a target
+read_area_thresh = int((vid.get_frame().shape[0]*vid.get_frame().shape[1])*90000/(1920*1080)) # the minimum area of a target to try and read the number from the image
 
 
 # these variables keep track of what state the robot is in
@@ -152,10 +152,11 @@ vel_error = 0
 kp, kd = 1, 0.1
 # the speed of the robot is currently just kept constant, but should be proportional to the area of the yellow blob
 forward_velocity = 0.42 # this is generally the max speed the robot will travel at
-search_velocity = 0.25
+search_velocity = 0.35
 turn_controller = 0 # this is the controller for the robot's turning, it is set to 0 initially
-recognition_pause_timer = time()
+recognition_pause_timer = -2
 recognition_timeout = 4
+startup_timer = time()
 
 checkpoint_data = [] # this holds all of the data that the robot has gathered from measurements
 print("Beggining search for checkpoint")
@@ -245,12 +246,12 @@ while True:
             print("Potential Target Found, Moving towards target.")
         else:
             # begin turning the robot until a target is found
-            if not laptop_mode:
-                dr_train.set_turn_velocity(search_velocity, turn_ratio=1)
+            if not laptop_mode and time() - startup_timer > 2:
+                dr_train.set_turn_velocity(search_velocity, turn_ratio=.9)
 
     # this makes the robot move towards the largest blob of yellow
     if is_moving_towards_target:
-        if coords[2]*coords[3] < 90:
+        if coords[2]*coords[3] < min_area_thresh:
             print("Target is lost, attempting to find it again.")
             has_temporarily_lost_target = True
             is_moving_towards_target = False
@@ -272,7 +273,7 @@ while True:
     if is_confirming_target and time() - recognition_pause_timer > 2:
         if not laptop_mode:
             dr_train.set_turn_velocity(0)
-        if coords[2]*coords[3] < 90:
+        if target.current_area < read_area_thresh:
             print("Target is lost, attempting to find it again.")
             has_temporarily_lost_target = True
             is_confirming_target = False
@@ -283,6 +284,10 @@ while True:
             print("Couldn't confirm target identity, moving on.")
             is_confirming_target = False
             is_looking_for_checkpoint = True
+            if not laptop_mode:
+                dr_train.set_turn_velocity(search_velocity, turn_ratio=0.75)
+                recognition_pause_timer = time()
+                
         elif target_num != 0:
             print("Found target with number:", target_num)
             # check to see if it has already visited this target
@@ -292,7 +297,7 @@ while True:
                 is_confirming_target = False
                 has_reached_checkpoint = True
                 if not laptop_mode:
-                    dr_train.set_turn_velocity(search_velocity, turn_ratio=1)
+                    dr_train.set_turn_velocity(search_velocity, turn_ratio=.75)
                     recognition_pause_timer = time()
             else:
                 print("This target has already been visited.")
@@ -300,7 +305,7 @@ while True:
                 is_looking_for_checkpoint = True
                 # turn the robot away from this checkpoint so it doesn't refind it while searching
                 if not laptop_mode:
-                    dr_train.set_turn_velocity(search_velocity, turn_ratio=1)
+                    dr_train.set_turn_velocity(search_velocity, turn_ratio=.75)
                     recognition_pause_timer = time()
 
     if has_reached_checkpoint:
@@ -309,6 +314,9 @@ while True:
         is_looking_for_checkpoint = True
         target.current_area = 0
         print("looking for new checkpoint")
+        # if the robot has seen all of the targets, exit the program
+        if False not in target.reached_targets:
+            break
 
 
 # clean up everything on exit
