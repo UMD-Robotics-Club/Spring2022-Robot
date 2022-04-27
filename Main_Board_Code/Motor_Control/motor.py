@@ -48,7 +48,10 @@ class motor:
             # Ask an EE major about it
             GPIO.output(self.__direction_pin, (True and not self.is_inverted))
         # set speed based on velocity
-        self.speed.ChangeDutyCycle(abs(self.__current_velocity)*100)
+        try:
+            self.speed.ChangeDutyCycle(abs(self.__current_velocity)*100)
+        except ValueError:
+            print("Invalid value error inputted for motor.", self.__current_velocity, self.current_time - self.old_time)
     
     def set_target_velocity(self, velocity : float):
         """Set the target velocity of the motor.
@@ -69,16 +72,22 @@ class motor:
         self.current_time = time()
         # calculate the time difference between the current and old time
         delta_time = self.current_time - self.old_time
+        #if delta_time > 0.3: delta_time = 0.05 # prevents random accelaration spikes
         # calculate the new current velocity based on the acceleration value
         vel_inc = self.accel * delta_time
         if self.target_velocity - self.__current_velocity < 0:
             vel_inc *= -1
-
+    
         # check to see if the new velocity is going to be within 5% of the target velocity
         if self.__current_velocity + vel_inc < self.target_velocity*1.05 and self.__current_velocity + vel_inc > self.target_velocity*0.95:
             self.update_velocity(self.target_velocity)
         else: # if the new velocity is not within 5% of the target velocity, then accelerate
-            self.update_velocity(self.__current_velocity + vel_inc)
+            if self.__current_velocity + vel_inc > 1:
+                self.update_velocity(1)
+            elif self.__current_velocity + vel_inc < -1:
+                self.update_velocity(-1)
+            else:
+                self.update_velocity(self.__current_velocity + vel_inc)
 
         # set the old time to the current time
         self.old_time = self.current_time
@@ -99,8 +108,15 @@ class drive_train:
     # turn relative to the velocity of the drive base
     def set_turn_velocity(self, velocity : float, turn_ratio : float = 0):
         """Set the velocity of the drive base."""
+        velocity = round(velocity, 3)
+        turn_ratio = round(turn_ratio, 4)
         self.velocity = velocity
         self.turn_ratio = turn_ratio
+
+        # this is for emergency stops
+        if velocity == 0 and turn_ratio == 0:
+            self.__motor1.update_velocity(0)
+            self.__motor2.update_velocity(0)
         # set the motor velocities based on the turn ratio and velocity
         if turn_ratio >= 0:
             self.__motor1.set_target_velocity(velocity)

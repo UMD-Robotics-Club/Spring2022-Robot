@@ -130,7 +130,7 @@ frame_center = (frame_center[1] / 2, frame_center[0] / 2)
 
 # These variables automatically scale with the resolution of the camera
 min_area_thresh = int((vid.get_frame().shape[0]*vid.get_frame().shape[1])*3000/(1920*1080)) # the minimum area of a target to be considered a target
-read_area_thresh = int((vid.get_frame().shape[0]*vid.get_frame().shape[1])*90000/(1920*1080)) # the minimum area of a target to try and read the number from the image
+read_area_thresh = int((vid.get_frame().shape[0]*vid.get_frame().shape[1])*100000/(1920*1080)) # the minimum area of a target to try and read the number from the image
 
 
 # these variables keep track of what state the robot is in
@@ -151,8 +151,8 @@ prop_error = 0
 vel_error = 0
 kp, kd = 1, 0.1
 # the speed of the robot is currently just kept constant, but should be proportional to the area of the yellow blob
-forward_velocity = 0.42 # this is generally the max speed the robot will travel at
-search_velocity = 0.35
+forward_velocity = 0.4 # this is generally the max speed the robot will travel at
+search_velocity = 0.4
 turn_controller = 0 # this is the controller for the robot's turning, it is set to 0 initially
 recognition_pause_timer = -2
 recognition_timeout = 4
